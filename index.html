@@ -12,15 +12,61 @@
     <script src="https://unpkg.com/lucide-react@0.294.0/dist/umd/lucide-react.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', "Microsoft JhengHei", sans-serif; overflow-x: hidden; }
+        :root {
+            --ink: #171717;
+            --muted: #5f6360;
+            --line: #dddcd7;
+            --paper: #ffffff;
+            --wash: #fbfaf8;
+            --accent: #A59482;
+            --accent-hover: #A99479;
+            --accent-soft: #F4EEE9;
+            --accent-line: #D3BBA8;
+            --clay: #C6A992;
+            --clay-soft: #F6F0EC;
+            --clay-line: #DBC8B6;
+            --taupe: #C4B1A0;
+        }
+        body {
+            font-family: 'Inter', "Microsoft JhengHei", sans-serif;
+            overflow-x: hidden;
+            background: #ffffff;
+            color: var(--ink);
+        }
+        button, input, textarea { letter-spacing: 0; }
+        button { -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .glass-btn-sm { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); }
-        .sidebar-glass { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(25px); }
-        .active-scale:active { transform: scale(0.96); }
+        .glass-btn-sm {
+            background: rgba(23, 23, 23, 0.62);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+        }
+        .sidebar-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(25px); }
+        .active-scale:active { transform: scale(0.985); }
         .receipt-dot { background-image: radial-gradient(#e2e8f0 1px, transparent 1px); background-size: 4px 4px; }
+        .subtle-scrollbar::-webkit-scrollbar { height: 4px; }
+        .subtle-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .subtle-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+        .subtle-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        .quiet-surface {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(221, 220, 215, 0.9);
+            box-shadow: 0 14px 36px rgba(24, 24, 27, 0.06);
+        }
+        .panel-shadow { box-shadow: 0 24px 70px rgba(24, 24, 27, 0.16); }
+        .field-soft {
+            background: #fff;
+            border: 1px solid #dededb;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .field-soft:focus {
+            border-color: var(--taupe);
+            box-shadow: 0 0 0 3px rgba(165, 148, 130, 0.18);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-zinc-900">
+<body class="text-zinc-900">
     <div id="root"></div>
     <script type="text/babel">
         (() => {
@@ -43,25 +89,22 @@
                 const [isLoading, setIsLoading] = useState(true);
                 const [view, setView] = useState('home'); 
                 const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-                
                 const [activeMainTab, setActiveMainTab] = useState(''); 
-                const [activeSub1, setActiveSub1] = useState('全部');
+                const [activeSub1, setActiveSub1] = useState('全部'); 
                 const [activeSub2, setActiveSub2] = useState('全部'); 
+                const [expandedMain, setExpandedMain] = useState('');
+                const [expandedSub1, setExpandedSub1] = useState('');
                 const [cart, setCart] = useState([]);
                 const [isCartOpen, setIsCartOpen] = useState(false);
                 const [orderStatus, setOrderStatus] = useState(null); 
                 const [isProcessing, setIsProcessing] = useState(false);
-
                 const [searchPhone, setSearchPhone] = useState('');
                 const [history, setHistory] = useState([]);
                 const [selectedRecord, setSelectedRecord] = useState(null);
                 const [isSearching, setIsSearching] = useState(false);
                 const [toast, setToast] = useState(null);
-                
-                // 表單狀態，將地址與備註完全拆分
                 const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '', payment: 'Cash', deliveryOption: '現貨先拿，預購寄出' });
-
-                const [visibleCount, setVisibleCount] = useState(4);
+                const [visibleCount, setVisibleCount] = useState(8);
                 const loaderRef = useRef(null);
 
                 const fetchProducts = async () => {
@@ -77,8 +120,8 @@
                         console.error("無法更新庫存", e);
                         if(rawData.length === 0) {
                             setRawData([
-                                { id: "B1", name: "測試商品B1", mainCat: "標籤機專區", subCat1: "B系列", subCat2: "B1標籤機", status: "現貨", color: "白色", price: 1580, originalPrice: 1980, stock: 10, type: "printer", img: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=600" },
-                                { id: "S1", name: "測試貼紙", mainCat: "貼紙耗材區", subCat1: "純白系列", subCat2: "純白貼紙", status: "預購", color: "透明", price: 150, originalPrice: 200, stock: 50, type: "sticker", img: "https://images.unsplash.com/photo-1591012980158-fdd3827131f4?w=600" }
+                                { id: "1", name: "大耳狗標籤禮盒", mainCat: "貼紙耗材區", subCat1: "B系列", subCat2: "三麗鷗", status: "現貨", color: "禮盒組", price: 600, originalPrice: 722, stock: 10, type: "sticker", img: "https://images.unsplash.com/photo-1591012980158-fdd3827131f4?w=600" },
+                                { id: "2", name: "測試商品B1", mainCat: "標籤機專區", subCat1: "B系列", subCat2: "B1標籤機", status: "現貨", color: "白色", price: 1580, originalPrice: 1980, stock: 10, type: "printer", img: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=600" }
                             ]);
                         }
                     }
@@ -90,35 +133,27 @@
 
                 const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 3500); };
 
-                const groupedProducts = useMemo(() => {
-                    const groups = new Map();
-                    rawData.forEach(item => {
-                        const gid = String(item.id);
-                        if (!groups.has(gid)) groups.set(gid, { ...item, variations: [] });
-                        groups.get(gid).variations.push(item);
-                    });
-                    
-                    const result = Array.from(groups.values());
-                    result.forEach(group => {
-                        group.variations.sort((a, b) => b.stock - a.stock);
-                    });
-                    
-                    return result;
-                }, [rawData]);
-
-                // 常駐大分類選單
                 const mainCatList = useMemo(() => {
-                    const mains = groupedProducts.map(p => p.mainCat).filter(Boolean);
+                    const mains = rawData.map(p => p.mainCat).filter(Boolean);
                     const unique = [...new Set(mains)];
-                    
                     const defaultPrinter = unique.find(c => c.includes('機')) || '標籤機專區';
                     const defaultSticker = unique.find(c => c.includes('貼')) || '貼紙耗材區';
-                    
                     if (!unique.includes(defaultPrinter)) unique.unshift(defaultPrinter);
                     if (!unique.includes(defaultSticker)) unique.push(defaultSticker);
-                    
                     return unique;
-                }, [groupedProducts]);
+                }, [rawData]);
+
+                const sub1List = useMemo(() => {
+                    const subs = rawData.filter(p => p.mainCat === activeMainTab).map(p => p.subCat1).filter(Boolean);
+                    return ['全部', ...new Set(subs)];
+                }, [rawData, activeMainTab]);
+                
+                const sub2List = useMemo(() => {
+                    if (activeSub1 === '全部') return [];
+                    const subs = rawData.filter(p => p.mainCat === activeMainTab && p.subCat1 === activeSub1 && p.subCat2).map(p => p.subCat2).filter(Boolean); 
+                    const uniqueSubs = [...new Set(subs)];
+                    return uniqueSubs.length > 0 ? ['全部', ...uniqueSubs] : [];
+                }, [rawData, activeMainTab, activeSub1]);
 
                 useEffect(() => {
                     if (mainCatList.length > 0 && !activeMainTab) {
@@ -126,42 +161,36 @@
                     }
                 }, [mainCatList, activeMainTab]);
 
-                const sub1List = useMemo(() => {
-                    const subs = groupedProducts
-                        .filter(p => p.mainCat === activeMainTab)
-                        .map(p => p.subCat1)
-                        .filter(Boolean);
-                    return ['全部', ...new Set(subs)];
-                }, [groupedProducts, activeMainTab]);
-                
-                const sub2List = useMemo(() => {
-                    if (activeSub1 === '全部') return [];
-                    const subs = groupedProducts
-                        .filter(p => p.mainCat === activeMainTab && p.subCat1 === activeSub1 && p.subCat2)
-                        .map(p => p.subCat2)
-                        .filter(Boolean); 
-                    const uniqueSubs = [...new Set(subs)];
-                    return uniqueSubs.length > 0 ? ['全部', ...uniqueSubs] : [];
-                }, [groupedProducts, activeMainTab, activeSub1]);
+                useEffect(() => {
+                    if (sub1List.length > 0 && !sub1List.includes(activeSub1)) {
+                        setActiveSub1('全部');
+                        setActiveSub2('全部');
+                    }
+                }, [sub1List, activeSub1]);
+
+                useEffect(() => {
+                    if (sub2List.length > 0 && !sub2List.includes(activeSub2)) {
+                        setActiveSub2('全部');
+                    }
+                }, [sub2List, activeSub2]);
 
                 const filteredDisplay = useMemo(() => {
-                    return groupedProducts.filter(p => {
+                    let items = rawData.filter(p => {
                         const matchMain = p.mainCat === activeMainTab; 
-                        const matchSub1 = activeSub1 === '全部' || p.subCat1 === activeSub1;
+                        const matchSub1 = activeSub1 === '全部' || p.subCat1 === activeSub1; 
                         const matchSub2 = activeSub2 === '全部' || p.subCat2 === activeSub2;
                         return matchMain && matchSub1 && matchSub2;
                     });
-                }, [groupedProducts, activeMainTab, activeSub1, activeSub2]);
+                    return items.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+                }, [rawData, activeMainTab, activeSub1, activeSub2]);
 
-                useEffect(() => {
-                    setVisibleCount(4);
-                }, [activeMainTab, activeSub1, activeSub2, view]);
+                useEffect(() => { setVisibleCount(8); }, [activeMainTab, activeSub1, activeSub2, view]);
 
                 useEffect(() => {
                     if (view !== 'store') return;
-                    const options = { root: null, rootMargin: '20px', threshold: 1.0 };
+                    const options = { root: null, rootMargin: '40px', threshold: 1.0 };
                     const observer = new IntersectionObserver((entries) => {
-                        if (entries[0].isIntersecting) setVisibleCount(prev => prev + 4);
+                        if (entries[0].isIntersecting) setVisibleCount(prev => prev + 6);
                     }, options);
                     if (loaderRef.current) observer.observe(loaderRef.current);
                     return () => { if (loaderRef.current) observer.unobserve(loaderRef.current); };
@@ -173,6 +202,7 @@
                         setActiveMainTab(target);
                         setActiveSub1('全部');
                         setActiveSub2('全部');
+                        setExpandedMain(target);
                         setView('store');
                         window.scrollTo(0,0);
                     }
@@ -182,8 +212,7 @@
                     const cid = `${v.id}-${v.color}`;
                     const exist = cart.find(i => i.cartId === cid);
                     const currentQty = exist ? exist.quantity : 0;
-                    const productInDb = rawData.find(p => p.id === v.id && p.color === v.color);
-                    const stockLimit = productInDb ? productInDb.stock : v.stock;
+                    const stockLimit = v.stock;
 
                     if (currentQty + q > stockLimit) {
                         showToast(`庫存不足！目前僅剩 ${stockLimit} 件`);
@@ -212,19 +241,15 @@
                 };
 
                 const removeFromCart = (cid) => setCart(prev => prev.filter(i => i.cartId !== cid));
-
                 const hasPreorder = cart.some(item => item.status === '預購');
 
                 const handleSubmitOrder = async () => {
-                    // 【必填防呆】驗證 姓名、電話、地址
                     if (!cart.length) return showToast("購物車是空的");
                     if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
                         return showToast("收件資訊不完整！姓名、電話與收件地址皆為必填。");
                     }
-                    
                     setOrderStatus('submitting');
                     const id = 'NIIM' + Math.floor(Math.random()*900000 + 100000);
-                    
                     const cleanCart = cart.map(item => ({
                         name: item.name || "未知名稱",
                         color: item.color || "預設",
@@ -233,17 +258,16 @@
                         status: item.status || '現貨'
                     }));
 
-                    // 獨立發送地址、備註、出貨方式給 GAS 後端對應欄位
                     const body = { 
                         orderId: id, 
                         timestamp: new Date().toLocaleString(), 
                         name: form.name.trim(), 
                         phone: form.phone.trim(), 
                         email: "",
-                        address: form.address.trim(),             // 獨立地址 (必填)
-                        memo: form.memo.trim(),                   // 獨立備註 (選填)
+                        address: form.address.trim(),             
+                        memo: form.memo.trim(),                   
                         payment: form.payment,
-                        deliveryOption: hasPreorder ? form.deliveryOption : "全部現貨", // 獨立出貨方式
+                        deliveryOption: hasPreorder ? form.deliveryOption : "全部現貨", 
                         itemsList: cleanCart,
                         totalAmount: cart.reduce((s,i)=>s+(i.price*i.quantity),0) 
                     };
@@ -305,40 +329,40 @@
                 const Receipt = ({ order, onBack }) => {
                     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
                     return (
-                        <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 relative">
-                            {isProcessing && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center font-black"><icons.Loader2 className="animate-spin mb-2" size={32}/> 同步中...</div>}
+                        <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden panel-shadow animate-in zoom-in-95 relative border border-stone-200">
+                            {isProcessing && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center font-semibold"><icons.Loader2 className="animate-spin mb-2" size={32}/> 同步中...</div>}
                             <div className="receipt-dot p-8 text-center border-b border-dashed border-slate-200">
                                 <icons.CheckCircle2 size={64} className="mx-auto text-emerald-500 mb-4" />
-                                <h2 className="text-2xl font-black italic tracking-tighter">NIIMBOT RECEIPT</h2>
+                                <h2 className="text-2xl font-semibold italic">NIIMBOT RECEIPT</h2>
                             </div>
                             <div className="p-8 space-y-6">
-                                <div className="bg-slate-50 p-6 rounded-3xl text-center border border-slate-100 shadow-inner">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ORDER ID</p>
-                                    <div className="text-3xl font-black tracking-tighter text-indigo-600 leading-none">{order.orderId}</div>
+                                <div className="bg-stone-50 p-6 rounded-xl text-center border border-stone-200 shadow-inner">
+                                    <p className="text-[10px] font-semibold text-zinc-600 uppercase mb-1">ORDER ID</p>
+                                    <div className="text-3xl font-semibold text-[#A59482] leading-none">{order.orderId}</div>
                                 </div>
                                 <div className="space-y-4 px-2">
-                                    <div className="flex justify-between font-bold text-xs"><span className="text-slate-400">客戶姓名</span><span>{order.name}</span></div>
-                                    <div className="flex justify-between font-bold text-xs"><span className="text-slate-400">聯絡電話</span><span>{order.phone}</span></div>
-                                    <div className="flex justify-between pt-2 border-t font-black"><span className="text-sm">應收總額</span><span className="text-2xl">${order.totalAmount}</span></div>
+                                    <div className="flex justify-between font-bold text-xs"><span className="text-zinc-500">客戶姓名</span><span>{order.name}</span></div>
+                                    <div className="flex justify-between font-bold text-xs"><span className="text-zinc-500">聯絡電話</span><span>{order.phone}</span></div>
+                                    <div className="flex justify-between pt-2 border-t font-semibold"><span className="text-sm">應收總額</span><span className="text-2xl">${order.totalAmount}</span></div>
                                 </div>
                             </div>
                             <div className="p-8 bg-zinc-900 text-white text-center space-y-3">
                                 <div className="flex flex-col items-center gap-1 opacity-80 mb-2">
                                     <icons.Camera size={24} className="text-emerald-400 animate-pulse" />
-                                    <p className="font-black text-base">請給工作人員查看</p>
+                                    <p className="font-semibold text-base">請給工作人員查看</p>
                                 </div>
                                 <div className="pt-2 flex flex-col gap-2">
                                     {isConfirmingCancel ? (
                                         <div className="flex gap-2 w-full animate-in fade-in">
-                                            <button onClick={() => setIsConfirmingCancel(false)} className="flex-1 bg-zinc-700 text-white py-4 rounded-2xl font-black active-scale">保留訂單</button>
-                                            <button onClick={() => { setIsConfirmingCancel(false); handleCancelAndEdit(order); }} className="flex-1 bg-rose-500 text-white py-4 rounded-2xl font-black active-scale">確認取消</button>
+                                            <button onClick={() => setIsConfirmingCancel(false)} className="flex-1 bg-zinc-700 text-white py-4 rounded-xl font-semibold active-scale">保留訂單</button>
+                                            <button onClick={() => { setIsConfirmingCancel(false); handleCancelAndEdit(order); }} className="flex-1 bg-rose-500 text-white py-4 rounded-xl font-semibold active-scale">確認取消</button>
                                         </div>
                                     ) : (
-                                        <button onClick={() => setIsConfirmingCancel(true)} className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black active-scale shadow-lg flex items-center justify-center gap-2">
+                                        <button onClick={() => setIsConfirmingCancel(true)} className="w-full bg-rose-500 text-white py-4 rounded-xl font-semibold active-scale shadow-lg flex items-center justify-center gap-2">
                                             <icons.RefreshCcw size={18}/> 取消訂單並修改
                                         </button>
                                     )}
-                                    <button onClick={onBack} className="w-full bg-white text-zinc-900 py-4 rounded-2xl font-black active-scale">返回首頁</button>
+                                    <button onClick={onBack} className="w-full bg-white text-zinc-900 py-4 rounded-xl font-semibold active-scale">返回首頁</button>
                                 </div>
                             </div>
                         </div>
@@ -348,32 +372,73 @@
                 if (isLoading) return <div className="h-screen flex items-center justify-center bg-white"><icons.Loader2 className="animate-spin text-indigo-600" size={48}/></div>;
 
                 return (
-                    <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative overflow-x-hidden">
+                    <div className="min-h-screen flex flex-col font-sans relative overflow-x-hidden">
                         <div className={`fixed inset-0 z-[500] transition-all duration-500 ${isSidebarOpen ? 'visible' : 'invisible'}`}>
                             <div className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity ${isSidebarOpen?'opacity-100':'opacity-0'}`} onClick={()=>setIsSidebarOpen(false)} />
-                            <div className={`absolute inset-y-0 left-0 w-72 sidebar-glass shadow-2xl flex flex-col transition-transform duration-500 ${isSidebarOpen?'translate-x-0':'-translate-x-full'}`}>
-                                <div className="p-8 border-b flex justify-between items-center"><img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-6" /><button onClick={()=>setIsSidebarOpen(false)} className="p-2"><icons.X size={20}/></button></div>
-                                <div className="flex-1 p-6 space-y-2 overflow-y-auto">
-                                    <button onClick={()=>{setView('home'); setIsSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold ${view==='home'?'bg-zinc-900 text-white shadow-lg':'text-zinc-500'}`}><icons.Home size={18}/>首頁入口</button>
-                                    {mainCatList.map((cat) => (
-                                        <button key={cat} onClick={() => { setActiveMainTab(cat); setView('store'); setActiveSub1('全部'); setActiveSub2('全部'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold ${view==='store' && activeMainTab===cat ? 'bg-zinc-900 text-white shadow-lg' : 'text-zinc-500 hover:bg-slate-100'}`}>
-                                            {cat.includes('機') ? <icons.Printer size={18}/> : <icons.Tag size={18}/>}
-                                            {cat}
-                                        </button>
-                                    ))}
+                            <div className={`absolute inset-y-0 left-0 w-[85%] max-w-[340px] bg-white panel-shadow flex flex-col transition-transform duration-500 ${isSidebarOpen?'translate-x-0':'-translate-x-full'}`}>
+                                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                    <img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-6" />
+                                    <button onClick={()=>setIsSidebarOpen(false)} className="p-2 bg-stone-50 rounded-lg text-zinc-500 active-scale border border-stone-200"><icons.X size={18}/></button>
                                 </div>
-                                <div className="p-6 border-t mt-auto"><button onClick={()=>{setView('track'); setIsSidebarOpen(false);}} className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl font-black text-sm bg-blue-50 text-blue-600 active-scale"><icons.ClipboardList size={18}/> 查詢交易紀錄</button></div>
+                                <div className="flex-1 py-4 overflow-y-auto subtle-scrollbar">
+                                    <button onClick={()=>{ setView('home'); setIsSidebarOpen(false); }} className="w-full text-left px-6 py-3 font-semibold text-zinc-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
+                                        <icons.Home size={18} className="text-zinc-500"/> 首頁
+                                    </button>
+                                    <button onClick={()=>{ if(mainCatList.length > 0) setActiveMainTab(mainCatList[0]); setActiveSub1('全部'); setActiveSub2('全部'); setView('store'); setIsSidebarOpen(false); }} className="w-full text-left px-6 py-3 font-semibold text-zinc-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
+                                        <icons.Package size={18} className="text-zinc-500"/> 所有商品
+                                    </button>
+                                    <div className="my-2 border-b border-slate-100 mx-6"></div>
+                                    {mainCatList.map((main) => {
+                                        const sub1s = [...new Set(rawData.filter(p => p.mainCat === main).map(p => p.subCat1).filter(Boolean))];
+                                        const isMainExpanded = expandedMain === main;
+                                        return (
+                                            <div key={main} className="flex flex-col">
+                                                <button onClick={() => setExpandedMain(isMainExpanded ? '' : main)} className="w-full flex justify-between items-center px-6 py-3 font-semibold text-zinc-900 hover:bg-stone-50 transition-colors">
+                                                    <span className="text-base">{main}</span>
+                                                    {sub1s.length > 0 && <icons.ChevronRight size={18} className={`text-zinc-500 transition-transform duration-300 ${isMainExpanded ? 'rotate-90' : ''}`} />}
+                                                </button>
+                                                {isMainExpanded && sub1s.length > 0 && (
+                                                    <div className="flex flex-col animate-in fade-in slide-in-from-top-2">
+                                                        {sub1s.map(sub1 => {
+                                                            const sub2s = [...new Set(rawData.filter(p => p.mainCat === main && p.subCat1 === sub1).map(p => p.subCat2).filter(Boolean))];
+                                                            const isSub1Expanded = expandedSub1 === sub1;
+                                                            return (
+                                                                <div key={sub1} className="flex flex-col">
+                                                                    <button onClick={() => { if (sub2s.length > 0) { setExpandedSub1(isSub1Expanded ? '' : sub1); } else { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2('全部'); setView('store'); setIsSidebarOpen(false); } }} className={`w-full flex justify-between items-center px-10 py-3 text-sm font-medium transition-colors ${activeSub1 === sub1 && view === 'store' && !isSub1Expanded ? 'bg-[#F4EEE9] text-[#5f5045]' : 'text-zinc-700 hover:bg-stone-50'}`}>
+                                                                        <span className="truncate">{sub1}</span>
+                                                                        {sub2s.length > 0 && <icons.ChevronRight size={16} className={`shrink-0 text-zinc-500 transition-transform duration-300 ${isSub1Expanded ? 'rotate-90' : ''}`} />}
+                                                                    </button>
+                                                                    {isSub1Expanded && sub2s.length > 0 && (
+                                                                        <div className="flex flex-col bg-slate-50/50 py-1 border-y border-slate-100/50 animate-in fade-in slide-in-from-top-1">
+                                                                            {sub2s.map(sub2 => (
+                                                                                <button key={sub2} onClick={() => { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2(sub2); setView('store'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-2 pl-14 pr-6 py-2.5 text-xs font-medium transition-colors ${activeSub2 === sub2 && view === 'store' ? 'text-[#5f5045] bg-[#F4EEE9]' : 'text-zinc-600 hover:text-zinc-800 hover:bg-stone-100/60'}`}>
+                                                                                    <span className="h-1 w-1 rounded-full bg-current opacity-50"></span> 
+                                                                                    <span className="truncate">{sub2}</span>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-6 border-t border-stone-100 bg-stone-50"><button onClick={()=>{setView('track'); setIsSidebarOpen(false);}} className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl font-semibold text-sm bg-white text-zinc-700 border border-stone-200 active-scale shadow-sm"><icons.ClipboardList size={18}/> 查詢歷史訂單紀錄</button></div>
                             </div>
                         </div>
 
-                        <header className="px-6 py-6 md:px-10 md:py-10 max-w-7xl mx-auto w-full flex justify-between items-center z-50">
+                        <header className="px-5 py-5 md:px-10 md:py-7 max-w-7xl mx-auto w-full flex justify-between items-center z-50">
                             <div className="flex items-center gap-4">
-                                <button onClick={()=>setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm rounded-xl text-slate-700 active-scale"><icons.Menu size={24}/></button>
+                                <button onClick={()=>setIsSidebarOpen(true)} className="p-2.5 bg-white/90 shadow-sm rounded-lg text-zinc-700 active-scale border border-stone-200 hover:border-zinc-300 transition-colors"><icons.Menu size={22}/></button>
                                 <img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-5 md:h-6" />
                             </div>
-                            <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white shadow-sm rounded-full active-scale">
-                                <icons.ShoppingCart size={22} className="text-zinc-700"/>
-                                {cart.length > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-black">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
+                            <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white/90 shadow-sm rounded-lg active-scale border border-stone-200 hover:border-zinc-300 transition-colors">
+                                <icons.ShoppingCart size={21} className="text-zinc-700"/>
+                                {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-[#A59482] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-semibold">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
                             </button>
                         </header>
 
@@ -382,11 +447,11 @@
                                 <div className="flex flex-col gap-8 md:gap-10">
                                     <div onClick={() => handleGoToMainCat('機')} className="group relative w-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden cursor-pointer shadow-xl transition-all hover:-translate-y-1.5 active-scale">
                                         <img src="https://cdn.groupbuyforms.com/upload/images/vcf/bd/ori/bd666fa97ee94f32ababcec1585f9f8f.png" className="w-full h-auto block group-hover:scale-105 transition-transform duration-1000" />
-                                        <div className="absolute bottom-[8%] right-[5%]"><div className="glass-btn-sm text-white px-6 py-2.5 md:px-10 md:py-3.5 text-sm md:text-lg rounded-full font-black inline-flex items-center gap-3 tracking-wider">進入選購 <icons.ArrowRight size={18} strokeWidth={3}/></div></div>
+                                        <div className="absolute bottom-[8%] right-[5%]"><div className="glass-btn-sm text-white px-6 py-2.5 md:px-10 md:py-3.5 text-sm md:text-lg rounded-full font-semibold inline-flex items-center gap-3">進入選購 <icons.ArrowRight size={18} strokeWidth={3}/></div></div>
                                     </div>
                                     <div onClick={() => handleGoToMainCat('貼')} className="group relative w-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden cursor-pointer shadow-xl transition-all hover:-translate-y-1.5 active-scale">
                                         <img src="https://cdn.groupbuyforms.com/upload/images/vcf/d0/ori/d050f7be0ac74c25825b42ccf3d41b5a.png" className="w-full h-auto block group-hover:scale-105 transition-transform duration-1000" />
-                                        <div className="absolute bottom-[8%] right-[5%]"><div className="glass-btn-sm text-white px-6 py-2.5 md:px-10 md:py-3.5 text-sm md:text-lg rounded-full font-black inline-flex items-center gap-3 tracking-wider">進入選購 <icons.ArrowRight size={18} strokeWidth={3}/></div></div>
+                                        <div className="absolute bottom-[8%] right-[5%]"><div className="glass-btn-sm text-white px-6 py-2.5 md:px-10 md:py-3.5 text-sm md:text-lg rounded-full font-semibold inline-flex items-center gap-3">進入選購 <icons.ArrowRight size={18} strokeWidth={3}/></div></div>
                                     </div>
                                     <div className="group relative w-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-xl">
                                         <img src="https://cdn.groupbuyforms.com/upload/images/vcf/3d/ori/3df3c6b3d6594c3eb2ca017163f63941.png" className="w-full h-auto block" />
@@ -398,37 +463,40 @@
                         {view === 'store' && (
                             <main className="flex-1 overflow-y-auto px-4 md:px-10 pb-20 no-scrollbar animate-in fade-in">
                                 <div className="max-w-7xl mx-auto">
-                                    <div className="flex gap-6 mb-4 border-b border-slate-200 overflow-x-auto no-scrollbar">
+                                    <div className="flex gap-6 mb-4 border-b border-slate-200 overflow-x-auto subtle-scrollbar">
                                         {mainCatList.map(cat => (
-                                            <button key={cat} onClick={() => { setActiveMainTab(cat); setActiveSub1('全部'); setActiveSub2('全部'); }} className={`whitespace-nowrap pb-3 font-black text-xl transition-colors relative ${activeMainTab === cat ? 'text-zinc-900' : 'text-slate-400'}`}>
+                                            <button key={cat} onClick={() => { setActiveMainTab(cat); setActiveSub1('全部'); setActiveSub2('全部'); }} className={`shrink-0 whitespace-nowrap pb-3 font-semibold text-lg transition-colors relative flex flex-col items-center gap-2 ${activeMainTab === cat ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-800'}`}>
+                                                {cat.includes('機') ? <icons.Printer size={24} strokeWidth={1.5}/> : <icons.Tag size={24} strokeWidth={1.5}/>}
                                                 {cat}
-                                                {activeMainTab === cat && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-zinc-900 rounded-t-full" />}
+                                                {activeMainTab === cat && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#A59482] rounded-t-full" />}
                                             </button>
                                         ))}
                                     </div>
-                                    <div className={`flex gap-3 overflow-x-auto no-scrollbar pb-2 ${sub2List.length > 1 ? 'mb-2' : 'mb-8'}`}>
-                                        {sub1List.map(sub => (
-                                            <button key={sub} onClick={() => { setActiveSub1(sub); setActiveSub2('全部'); }} className={`whitespace-nowrap px-6 py-2.5 rounded-full font-black text-sm transition-all active-scale ${activeSub1 === sub ? 'bg-zinc-900 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-200'}`}>
-                                                {sub}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    {sub1List.length > 1 && (
+                                        <div className="flex gap-3 overflow-x-auto subtle-scrollbar pb-3 mb-2 animate-in fade-in">
+                                            {sub1List.map(sub => (
+                                                <button key={sub} onClick={() => { setActiveSub1(sub); setActiveSub2('全部'); }} className={`shrink-0 whitespace-nowrap px-5 py-2.5 rounded-xl font-semibold text-sm transition-all active-scale ${activeSub1 === sub ? 'bg-[#A59482] text-white shadow-sm' : 'bg-white text-zinc-700 border border-stone-200 hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
+                                                    {sub}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                     {sub2List.length > 1 && (
-                                        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8 pb-2">
+                                        <div className="flex gap-2 overflow-x-auto subtle-scrollbar mb-8 pb-2 animate-in slide-in-from-top-2 fade-in">
                                             {sub2List.map(sub2 => (
-                                                <button key={sub2} onClick={() => setActiveSub2(sub2)} className={`whitespace-nowrap px-5 py-2 rounded-full font-bold text-xs transition-all active-scale ${activeSub2 === sub2 ? 'bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm' : 'bg-slate-50 text-slate-500 border border-transparent'}`}>
+                                                <button key={sub2} onClick={() => setActiveSub2(sub2)} className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-xs transition-all active-scale ${activeSub2 === sub2 ? 'bg-[#F4EEE9] text-[#5f5045] border border-[#D3BBA8] shadow-sm' : 'bg-white text-zinc-700 border border-transparent hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
                                                     {sub2}
                                                 </button>
                                             ))}
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 mt-6">
                                         {filteredDisplay.length > 0 ? (
-                                            filteredDisplay.slice(0, visibleCount).map(p => <ProductCard key={p.id} product={p} onAdd={addToCart} />)
+                                            filteredDisplay.slice(0, visibleCount).map((p, index) => <ProductCard key={`${p.id}-${p.color}-${index}`} item={p} onAdd={addToCart} />)
                                         ) : (
                                             <div className="col-span-full py-20 text-center opacity-30 flex flex-col items-center gap-4">
                                                 <icons.Package size={64}/>
-                                                <p className="font-black">目前無商品</p>
+                                                <p className="font-semibold">目前分類無商品</p>
                                             </div>
                                         )}
                                     </div>
@@ -444,16 +512,16 @@
                         {view === 'track' && (
                             <main className="flex-1 px-6 max-w-xl mx-auto py-12 animate-in fade-in">
                                 {selectedRecord ? <Receipt order={selectedRecord} onBack={()=>setSelectedRecord(null)} /> : (
-                                    <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 text-center">
-                                        <div className="bg-zinc-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><icons.Phone size={32} className="text-zinc-800"/></div>
-                                        <h2 className="text-2xl font-black text-zinc-900 mb-2">查詢歷史紀錄</h2>
-                                        <input type="tel" placeholder="請輸入訂購電話" value={searchPhone} onChange={e=>setSearchPhone(e.target.value)} className="w-full p-5 bg-slate-50 rounded-2xl outline-none text-center font-black text-xl mb-4 focus:ring-2 focus:ring-zinc-200" />
-                                        <button onClick={handleSearchHistory} disabled={isSearching} className="w-full bg-zinc-900 text-white py-5 rounded-2xl font-black active-scale shadow-xl disabled:opacity-50">{isSearching ? <icons.Loader2 className="animate-spin mx-auto" /> : '立即抓取歷史訂單'}</button>
+                                    <div className="quiet-surface rounded-2xl p-8 md:p-10 text-center">
+                                        <div className="bg-stone-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-stone-200"><icons.Phone size={28} className="text-zinc-800"/></div>
+                                        <h2 className="text-2xl font-semibold text-zinc-900 mb-2">查詢歷史紀錄</h2>
+                                        <input type="tel" placeholder="請輸入訂購電話" value={searchPhone} onChange={e=>setSearchPhone(e.target.value)} className="w-full p-4 field-soft rounded-xl outline-none text-center font-semibold text-lg mb-4" />
+                                        <button onClick={handleSearchHistory} disabled={isSearching} className="w-full bg-[#A59482] text-white py-4 rounded-xl font-semibold active-scale shadow-sm disabled:opacity-50 hover:bg-[#A99479] transition-colors">{isSearching ? <icons.Loader2 className="animate-spin mx-auto" /> : '立即抓取歷史訂單'}</button>
                                         <div className="mt-8 space-y-3">
                                             {history.map(item => (
-                                                <div key={item.orderId} onClick={()=>setSelectedRecord(item)} className="bg-slate-50 p-5 rounded-2xl flex justify-between items-center cursor-pointer border border-transparent hover:border-slate-200 group">
-                                                    <div className="text-left"><div className="font-black text-zinc-900">{item.orderId}</div><div className="text-[10px] text-slate-400">{item.timestamp}</div></div>
-                                                    <div className="flex items-center gap-3 font-black text-zinc-900">${item.totalAmount} <icons.ChevronRight className="text-slate-300 group-hover:translate-x-1 transition-transform" size={18}/></div>
+                                                <div key={item.orderId} onClick={()=>setSelectedRecord(item)} className="bg-white/80 p-4 rounded-xl flex justify-between items-center cursor-pointer border border-stone-200 hover:border-zinc-300 group">
+                                                    <div className="text-left"><div className="font-semibold text-zinc-900">{item.orderId}</div><div className="text-[10px] text-zinc-600">{item.timestamp}</div></div>
+                                                    <div className="flex items-center gap-3 font-semibold text-zinc-900">${item.totalAmount} <icons.ChevronRight className="text-zinc-300 group-hover:translate-x-1 transition-transform" size={18}/></div>
                                                 </div>
                                             ))}
                                         </div>
@@ -464,82 +532,92 @@
 
                         {isCartOpen && (
                             <div className="fixed inset-0 z-[600] flex justify-end">
-                                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={()=>setIsCartOpen(false)} />
-                                <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 text-zinc-900">
-                                    <div className="p-8 border-b flex justify-between items-center font-black">
-                                        <button onClick={()=>setIsCartOpen(false)} className="active-scale p-2 hover:bg-slate-100 rounded-full transition-colors"><icons.ArrowLeft size={24}/></button>
-                                        <h2 className="text-xl font-black italic tracking-tighter">NIIMBOT CART</h2>
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={()=>setIsCartOpen(false)} />
+                                <div className="relative w-full max-w-md bg-[#fbfaf8] h-full panel-shadow flex flex-col animate-in slide-in-from-right duration-300 text-zinc-900">
+                                    <div className="p-6 border-b border-stone-200 flex justify-between items-center font-semibold bg-white/95">
+                                        <button onClick={()=>setIsCartOpen(false)} className="active-scale p-2 hover:bg-stone-100 rounded-lg transition-colors"><icons.ArrowLeft size={22}/></button>
+                                        <h2 className="text-lg font-semibold">購物車</h2>
                                         <div className="w-10"/>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
-                                        {cart.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-30 gap-4 text-center"><icons.Package size={64}/><p className="font-black text-xs uppercase tracking-widest">購物車是空的</p></div> : 
+                                    <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 subtle-scrollbar">
+                                        {cart.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-40 gap-4 text-center"><icons.Package size={54}/><p className="font-semibold text-xs uppercase">購物車是空的</p></div> : 
                                             <>
                                                 <div className="space-y-4">
                                                     {cart.map(item => (
-                                                        <div key={item.cartId} className="flex gap-4 items-center bg-slate-50 p-5 rounded-[2rem] border border-slate-100 relative group shadow-sm">
-                                                            <div className="w-16 h-16 bg-white rounded-2xl overflow-hidden shrink-0 shadow-sm">{item.img ? <img src={item.img} className="w-full h-full object-contain p-1"/> : <div className="w-full h-full flex items-center justify-center bg-slate-100"><icons.ImageIcon className="text-slate-200" size={24}/></div>}</div>
-                                                            <div className="flex-1 text-xs font-black">
-                                                                <div className="flex justify-between items-start">
-                                                                    <div className="flex flex-col">
-                                                                        {item.status === '預購' && <span className="text-[9px] text-amber-500 mb-0.5 border border-amber-200 bg-amber-50 px-1.5 py-0.5 rounded w-fit">預購</span>}
-                                                                        <span>{item.name}</span>
+                                                        <div key={item.cartId} className="flex gap-4 p-4 bg-white rounded-xl border border-stone-200 shadow-sm items-stretch group">
+                                                            <div className="w-20 h-20 bg-stone-50 rounded-lg overflow-hidden shrink-0 p-1 border border-stone-100">
+                                                                {item.img ? <img src={item.img} className="w-full h-full object-contain"/> : <div className="w-full h-full flex items-center justify-center bg-stone-100"><icons.ImageIcon className="text-zinc-300" size={24}/></div>}
+                                                            </div>
+                                                            <div className="flex flex-col flex-1 justify-between gap-1">
+                                                                <div className="flex justify-between items-start gap-2">
+                                                                    <div className="flex flex-col items-start gap-1">
+                                                                        {item.status === '預購' && <span className="text-[9px] text-[#5f5045] border border-[#D3BBA8] bg-[#F4EEE9] px-1.5 py-0.5 rounded w-fit font-medium">預購</span>}
+                                                                        <span className="text-xs font-semibold text-zinc-900 leading-snug line-clamp-2">{item.name}</span>
                                                                     </div>
-                                                                    <span>${item.price * item.quantity}</span>
+                                                                    <button onClick={()=>removeFromCart(item.cartId)} className="shrink-0 p-1.5 text-zinc-600 hover:text-[#A59482] hover:bg-[#F6F0EC] rounded-lg active-scale transition-colors"><icons.Trash2 size={16}/></button>
                                                                 </div>
-                                                                <div className="text-[10px] text-slate-400 mt-2 flex justify-between items-center">
-                                                                    <span className="bg-white px-3 py-1 rounded-lg border border-slate-100 font-bold">{item.color}</span>
-                                                                    <div className="flex items-center gap-1">
-                                                                        <button onClick={()=>updateCartQuantity(item.cartId, -1)} className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center active-scale shadow-sm"><icons.Minus size={12}/></button>
-                                                                        <span className="w-6 text-center">{item.quantity}</span>
-                                                                        <button onClick={()=>updateCartQuantity(item.cartId, 1)} className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center active-scale shadow-sm"><icons.Plus size={12}/></button>
+                                                                <div className="flex justify-between items-end mt-1">
+                                                                    <span className="bg-stone-50 px-2 py-1 rounded-md border border-stone-200 text-[10px] font-medium text-zinc-500">{item.color}</span>
+                                                                    <div className="flex flex-col items-end gap-1.5">
+                                                                        <span className="font-semibold text-sm text-zinc-900">${item.price * item.quantity}</span>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <button onClick={()=>updateCartQuantity(item.cartId, -1)} className="w-7 h-7 rounded-lg bg-white border border-stone-200 flex items-center justify-center active-scale shadow-sm text-zinc-600"><icons.Minus size={12}/></button>
+                                                                            <span className="w-6 text-center text-xs font-semibold">{item.quantity}</span>
+                                                                            <button onClick={()=>updateCartQuantity(item.cartId, 1)} className="w-7 h-7 rounded-lg bg-white border border-stone-200 flex items-center justify-center active-scale shadow-sm text-zinc-600"><icons.Plus size={12}/></button>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <button onClick={()=>removeFromCart(item.cartId)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 active-scale shadow-sm"><icons.Trash2 size={16}/></button>
                                                         </div>
                                                     ))}
                                                 </div>
 
-                                                {/* 預購商品專用取貨偏好 */}
                                                 {hasPreorder && (
-                                                    <div className="pt-6 border-t space-y-3">
-                                                        <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest pl-1 flex items-center gap-1"><icons.Package size={14}/> 包含預購商品，請選擇處理方式</p>
+                                                    <div className="pt-6 border-t border-slate-200 space-y-3">
+                                                        <p className="text-[11px] font-semibold text-[#5f5045] uppercase pl-1 flex items-center gap-1"><icons.Package size={14}/> 包含預購商品，請選擇處理方式</p>
                                                         <div className="grid grid-cols-1 gap-2">
-                                                            <button onClick={()=>setForm({...form, deliveryOption: '現貨先拿，預購寄出'})} className={`p-4 rounded-2xl border-2 text-left transition-all active-scale ${form.deliveryOption === '現貨先拿，預購寄出' ? 'bg-amber-50 border-amber-500 shadow-sm text-amber-900' : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'}`}>
-                                                                <div className="font-black text-sm text-zinc-900">現貨先拿，預購寄出</div>
+                                                            <button onClick={()=>setForm({...form, deliveryOption: '現貨先拿，預購寄出'})} className={`p-4 rounded-xl border text-left transition-all active-scale ${form.deliveryOption === '現貨先拿，預購寄出' ? 'bg-[#F4EEE9] border-[#C6A992] shadow-sm text-[#3f352d]' : 'bg-white border-stone-200 text-zinc-700 hover:bg-[#fbfaf8]'}`}>
+                                                                <div className="font-semibold text-sm text-zinc-900">現貨先拿，預購寄出</div>
                                                                 <div className="text-[10px] mt-1 opacity-80">現場先帶走現貨，預購商品到貨後寄出</div>
                                                             </button>
-                                                            <button onClick={()=>setForm({...form, deliveryOption: '現貨/預購一起寄出'})} className={`p-4 rounded-2xl border-2 text-left transition-all active-scale ${form.deliveryOption === '現貨/預購一起寄出' ? 'bg-amber-50 border-amber-500 shadow-sm text-amber-900' : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'}`}>
-                                                                <div className="font-black text-sm text-zinc-900">現貨 / 預購一起寄出</div>
+                                                            <button onClick={()=>setForm({...form, deliveryOption: '現貨/預購一起寄出'})} className={`p-4 rounded-xl border text-left transition-all active-scale ${form.deliveryOption === '現貨/預購一起寄出' ? 'bg-[#F4EEE9] border-[#C6A992] shadow-sm text-[#3f352d]' : 'bg-white border-stone-200 text-zinc-700 hover:bg-[#fbfaf8]'}`}>
+                                                                <div className="font-semibold text-sm text-zinc-900">現貨 / 預購一起寄出</div>
                                                                 <div className="text-[10px] mt-1 opacity-80">等預購商品到貨後，所有商品一起寄出</div>
                                                             </button>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                <div className="pt-6 border-t space-y-4">
-                                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest pl-1">收件資訊 CUSTOMER INFO</p>
-                                                    <input placeholder="您的姓名 (必填)" className="w-full p-5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-zinc-100 outline-none text-sm font-black" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
-                                                    <input placeholder="電話號碼 (必填)" className="w-full p-5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-zinc-100 outline-none text-sm font-black" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
-                                                    
-                                                    {/* 地址、備註完全獨立分離 */}
-                                                    <input placeholder="收件地址 (必填)" className="w-full p-5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-zinc-100 outline-none text-sm font-black" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
-                                                    <textarea placeholder="備註留言 (選填)" className="w-full p-5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-zinc-100 outline-none text-sm font-black h-20 resize-none" value={form.memo} onChange={e=>setForm({...form,memo:e.target.value})}/>
+                                                <div className="pt-6 border-t border-slate-200 space-y-4">
+                                                    <p className="text-[11px] font-semibold text-zinc-600 uppercase pl-1">收件資訊 CUSTOMER INFO</p>
+                                                    <input placeholder="您的姓名 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
+                                                    <input placeholder="電話號碼 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
+                                                    <input placeholder="收件地址 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
+                                                    <textarea placeholder="備註留言 (選填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium h-20 resize-none" value={form.memo} onChange={e=>setForm({...form,memo:e.target.value})}/>
                                                 </div>
-                                                <div className="grid grid-cols-3 gap-2 pb-6">
-                                                    {[ ['Linepay', icons.Wallet, 'LinePay'], ['Card', icons.CreditCard, '刷卡'], ['Cash', icons.Banknote, '現金'] ].map(([k, Ic, lb]) => (
-                                                        <button key={k} onClick={()=>setForm({...form, payment: k})} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all active-scale ${form.payment === k ? 'bg-zinc-900 border-zinc-900 text-white shadow-lg' : 'bg-white border-slate-50 text-slate-400 hover:bg-slate-50'}`}><Ic size={20}/><span className="text-[10px] font-black">{lb}</span></button>
-                                                    ))}
+                                                <div className="pt-2 pb-2">
+                                                    <p className="text-[11px] font-semibold text-zinc-600 uppercase pl-1 mb-3">付款方式</p>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {[ ['Linepay', icons.Wallet, 'LinePay'], ['Card', icons.CreditCard, '刷卡'], ['Cash', icons.Banknote, '現金'] ].map(([k, Ic, lb]) => (
+                                                            <button key={k} onClick={()=>setForm({...form, payment: k})} className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all active-scale shadow-sm ${form.payment === k ? 'bg-[#A59482] border-[#A59482] text-white' : 'bg-white border-stone-200 text-zinc-700 hover:bg-[#fbfaf8]'}`}><Ic size={20}/><span className="text-[10px] font-semibold">{lb}</span></button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="pb-4">
+                                                    <div className="bg-[#F4EEE9] border border-[#D3BBA8] rounded-xl p-4 flex items-center justify-center gap-3 shadow-sm">
+                                                        <icons.CreditCard size={18} className="text-[#5f5045]" />
+                                                        <span className="text-sm font-semibold text-[#5f5045]">下單後請至櫃台結帳</span>
+                                                    </div>
                                                 </div>
                                             </>
                                         }
                                     </div>
-                                    <div className="p-10 border-t bg-white shadow-2xl">
+                                    <div className="p-7 border-t border-stone-200 bg-white shadow-[0_-10px_20px_rgba(24,24,27,0.04)] z-10">
                                         <div className="flex justify-between items-end mb-8 px-2">
-                                            <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest pb-1">TOTAL</span>
-                                            <span className="text-4xl font-black tracking-tighter">${cart.reduce((s,i)=>s+i.price*i.quantity,0)}</span>
+                                            <span className="text-zinc-600 text-[11px] font-semibold uppercase pb-1">TOTAL</span>
+                                            <span className="text-3xl font-semibold">${cart.reduce((s,i)=>s+i.price*i.quantity,0)}</span>
                                         </div>
-                                        <button onClick={handleSubmitOrder} disabled={cart.length===0 || orderStatus==='submitting'} className="w-full bg-zinc-900 text-white py-7 rounded-[2rem] font-black active-scale shadow-2xl hover:bg-black uppercase">
+                                        <button onClick={handleSubmitOrder} disabled={cart.length===0 || orderStatus==='submitting'} className="w-full bg-[#A59482] text-white py-5 rounded-xl font-semibold active-scale shadow-sm hover:bg-[#A99479] uppercase disabled:opacity-60 transition-colors">
                                             {orderStatus==='submitting' ? <icons.Loader2 className="animate-spin mx-auto" size={20}/> : '確認下單'}
                                         </button>
                                     </div>
@@ -552,50 +630,72 @@
                                 <Receipt order={selectedRecord} onBack={()=>{setOrderStatus(null); setView('home');}} />
                             </div>
                         )}
-                        {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[1100] bg-zinc-900 text-white px-10 py-4 rounded-[2rem] font-black animate-in slide-in-from-bottom-5 text-xs shadow-2xl">{toast}</div>}
+                        {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[1100] bg-zinc-900 text-white px-8 py-3.5 rounded-xl font-semibold animate-in slide-in-from-bottom-5 text-xs shadow-xl whitespace-nowrap">{toast}</div>}
                     </div>
                 );
             };
 
-            const ProductCard = ({ product, onAdd }) => {
-                const [idx, setIdx] = useState(0); const [qty, setQty] = useState(1); 
-                const cur = product.variations[idx] || product.variations[0];
-                const isOutOfStock = cur.stock <= 0;
-                const maxQty = Math.min(10, Math.max(1, cur.stock));
+            const ProductCard = ({ item, onAdd }) => {
+                const [qty, setQty] = useState(1); 
+                const isOutOfStock = item.stock <= 0;
+                const maxQty = Math.min(10, Math.max(1, item.stock));
+                const handleAdd = () => { if (qty < maxQty) setQty(q => q + 1); };
+                const handleSub = () => { if (qty > 1) setQty(q => q - 1); };
 
                 return (
-                    <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden group flex flex-col h-full shadow-sm hover:shadow-2xl transition-all duration-700">
-                        {cur.status && (
-                            <div className={`w-full py-2 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] z-10 ${
-                                cur.status === '預購' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' : 'bg-gradient-to-r from-zinc-800 to-zinc-900 text-white'
-                            }`}>
-                                {cur.status === '預購' ? <icons.Package size={14} /> : <icons.CheckCircle2 size={14} />}
-                                {cur.status}
-                            </div>
-                        )}
-                        <div className="aspect-square bg-slate-50 relative overflow-hidden flex items-center justify-center">
-                            {cur.img ? <img key={cur.img} src={cur.img} className={`w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-1000 ${isOutOfStock ? 'grayscale opacity-70' : ''}`}/> : <icons.ImageIcon size={44} className="text-slate-200"/>}
-                            {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-sm z-20"><span className="bg-zinc-900 text-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest">售完 OUT OF STOCK</span></div>}
+                    <div className="bg-white/95 rounded-2xl border border-stone-200 overflow-hidden group flex flex-col h-full shadow-sm hover:shadow-md transition-all duration-300">
+                        <div className="aspect-square bg-stone-50 relative overflow-hidden flex items-center justify-center border-b border-stone-100">
+                            {item.img ? <img src={item.img} className={`w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-70' : ''}`}/> : <icons.ImageIcon size={32} className="text-slate-200"/>}
+                            {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[2px] z-20"><span className="bg-zinc-900 text-white px-3 py-1.5 rounded-lg font-semibold text-[10px] md:text-xs uppercase shadow-sm">售完 OUT OF STOCK</span></div>}
                         </div>
-                        <div className="p-5 md:p-8 flex-1 flex flex-col gap-4">
-                            <h3 className="font-black text-[13px] md:text-sm h-10 md:h-12 line-clamp-2 text-zinc-800 leading-snug">{cur.name}</h3>
-                            <div className="flex flex-col gap-2">
-                                <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase w-fit ${isOutOfStock ? 'bg-rose-50 text-rose-500' : 'bg-slate-100 text-slate-500'}`}>庫存: {cur.stock}</div>
-                                <div className="flex flex-col"><span className="text-[10px] text-slate-300 line-through font-bold leading-none mb-1">${cur.originalPrice}</span><span className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tighter leading-none">${cur.price}</span></div>
+                        <div className="p-4 md:p-5 flex-1 flex flex-col gap-2">
+                            <div className="flex flex-wrap gap-1.5 mb-1 mt-[-4px]">
+                                {String(item.id) === "1" && (
+                                    <span className="bg-[#F6F0EC] text-[#6b5649] border border-[#DBC8B6] px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
+                                        熱銷款
+                                    </span>
+                                )}
+                                {String(item.id) === "2" && (
+                                    <span className="bg-[#F4EEE9] text-[#5f5045] border border-[#D3BBA8] px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1">
+                                        推薦
+                                    </span>
+                                )}
+                                {item.status && (
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border flex items-center gap-1 ${item.status === '預購' ? 'bg-[#F4EEE9] text-[#5f5045] border-[#D3BBA8]' : 'bg-stone-50 text-zinc-700 border-stone-200'}`}>
+                                        {item.status === '預購' ? <icons.Package size={10}/> : <icons.CheckCircle2 size={10}/>}
+                                        {item.status}
+                                    </span>
+                                )}
                             </div>
-                            <div className="flex flex-col gap-2 mt-auto pt-2">
-                                <div className="relative"><select value={idx} onChange={e=>{setIdx(Number(e.target.value)); setQty(1);}} className="w-full bg-slate-50 border-none rounded-xl p-3.5 text-[11px] font-black outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-zinc-200">
-                                    {product.variations.map((v,i)=><option key={i} value={i}>{v.color || '預設'}{v.stock <= 0 ? ' (完售)' : ''}</option>)}
-                                </select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20 text-[10px]">▼</div></div>
-                                <div className="relative"><select disabled={isOutOfStock} value={qty} onChange={e=>setQty(Number(e.target.value))} className="w-full bg-slate-50 border-none rounded-xl p-3.5 text-[11px] font-black outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-zinc-200 disabled:opacity-50">
-                                    {Array.from({length: maxQty}, (_, i) => i + 1).map(n=><option key={n} value={n}>數量: {n}</option>)}
-                                </select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20 text-[10px]">▼</div></div>
+                            <h3 className="font-semibold text-xs md:text-sm h-10 line-clamp-2 text-zinc-800 leading-snug">
+                                {item.name}
+                            </h3>
+                            <div className="flex flex-col gap-1 mt-auto pt-2">
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-semibold uppercase ${isOutOfStock ? 'bg-[#F6F0EC] text-[#6b5649]' : 'bg-stone-100 text-zinc-700'}`}>庫存: {item.stock}</span>
+                                    {item.color !== '預設' && <span className="text-[10px] text-zinc-600 font-medium">{item.color}</span>}
+                                </div>
+                                <div className="flex items-baseline gap-1.5 mt-1">
+                                    <span className="text-xl md:text-2xl font-semibold text-zinc-900 leading-none">${item.price}</span>
+                                    {item.originalPrice > item.price && <span className="text-[10px] text-zinc-300 line-through font-medium leading-none">${item.originalPrice}</span>}
+                                </div>
                             </div>
-                            <button disabled={isOutOfStock} onClick={()=>onAdd(cur, qty)} className={`w-full text-white py-4 md:py-5 rounded-2xl font-black shadow-lg transition-all uppercase tracking-widest mt-2 ${isOutOfStock ? 'bg-slate-300' : 'bg-zinc-900 active-scale hover:bg-black'}`}>{isOutOfStock ? '補貨中' : '加入購物車'}</button>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <div className="flex items-center justify-between bg-stone-50 rounded-xl p-1 border border-stone-200 shadow-sm">
+                                    <button disabled={isOutOfStock || qty <= 1} onClick={handleSub} className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center bg-white shadow-sm text-zinc-600 disabled:opacity-30 active-scale transition-colors hover:bg-stone-100"><icons.Minus size={14}/></button>
+                                    <span className="text-xs md:text-sm font-semibold w-8 text-center">{qty}</span>
+                                    <button disabled={isOutOfStock || qty >= maxQty} onClick={handleAdd} className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center bg-white shadow-sm text-zinc-600 disabled:opacity-30 active-scale transition-colors hover:bg-stone-100"><icons.Plus size={14}/></button>
+                                </div>
+                                <button disabled={isOutOfStock} onClick={()=>onAdd(item, qty)} className={`w-full text-white py-3 md:py-4 rounded-xl font-semibold shadow-sm active-scale transition-all text-xs md:text-sm flex items-center justify-center gap-2 ${isOutOfStock ? 'bg-zinc-400' : 'bg-[#A59482] hover:bg-[#A99479]'}`}>
+                                    <icons.ShoppingCart size={16}/>
+                                    {isOutOfStock ? '補貨中' : '加入購物車'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
             };
+            
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(<App />);
         })();
