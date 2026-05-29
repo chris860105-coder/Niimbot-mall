@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>展場理貨系統 (員工專用)</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        ::-webkit-scrollbar { display: none; }
+        body { -ms-overflow-style: none; scrollbar-width: none; background-color: #f3f4f6; }
+        .toggle-checkbox:checked { right: 0; border-color: #10B981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+        .loader { border-top-color: #4f46e5; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="app" class="max-w-md mx-auto min-h-screen pb-20 relative">
+        
+        <!-- 頂部導航 -->
+        <header class="bg-indigo-600 text-white p-4 sticky top-0 z-50 shadow-md">
+            <div class="flex justify-between items-center mb-3">
+                <h1 class="text-xl font-bold"><i class="fas fa-boxes mr-2"></i>展場理貨系統</h1>
+                <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full flex items-center cursor-pointer" @click="changeUser">
+                    <i class="fas fa-user-circle mr-1"></i> {{ currentUser }}
+                </div>
+            </div>
+            
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                <input 
+                    v-model="searchQuery" 
+                    type="text" 
+                    placeholder="搜尋姓名、電話、單號..." 
+                    class="w-full pl-10 pr-4 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                >
+            </div>
+        </header>
+
+        <!-- 載入中動畫 -->
+        <div v-if="isLoading" class="flex flex-col justify-center items-center h-64 text-indigo-600">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <p class="font-semibold text-gray-600">正在同步雲端訂單...</p>
+        </div>
+
+        <!-- 訂單列表區 -->
+        <main v-else class="p-4">
+            
+            <!-- 🔥 新增：連線錯誤的超詳細除錯面板 -->
+            <div v-if="fetchError" class="bg-red-50 p-4 rounded-xl mb-6 border border-red-200 shadow-sm animate-fade-in-down">
+                <h3 class="text-red-800 font-bold mb-2 text-lg"><i class="fas fa-exclamation-triangle mr-2"></i>連線到後端失敗</h3>
+                <p class="text-sm text-red-600 mb-3 leading-relaxed">
+                    這通常代表您的 Google Apps Script <strong>當機了</strong>。<br>
+                    當後端發生錯誤時，瀏覽器會阻擋連線，產生 <code>Failed to fetch</code> 錯誤。
+                </p>
+                <div class="text-sm text-gray-700 bg-white p-3 rounded border mb-4 leading-relaxed">
+                    <strong class="text-gray-900">常見的當機原因：</strong>
+                    <ol class="list-decimal list-inside mt-2 space-y-1">
+                        <li>忘記把程式碼裡的 <code class="bg-gray-100 text-pink-600 px-1 rounded text-xs">SHEET_ID</code> 換成您真實的試算表 ID。</li>
+                        <li>試算表底下沒有建立 <code class="bg-gray-100 text-pink-600 px-1 rounded text-xs">工作人員狀態</code> 分頁。</li>
+                        <li>部署時權限沒有設定為 <strong>「所有人」</strong>。</li>
+                        <li>改完程式碼後，發布時忘記選擇 <strong>「建立新版本」</strong>。</li>
+                    </ol>
+                </div>
+                <p class="text-xs text-red-500 mb-2 font-bold">👇 請點擊下方按鈕，直接看 Google 噴出什麼錯誤：</p>
+                <a :href="apiUrl" target="_blank" class="block text-center w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition shadow-md">
+                    <i class="fas fa-external-link-alt mr-1"></i> 點我打開後端 API 檢查錯誤
+                </a>
+            </div>
+
+            <div v-if="!fetchError && filteredOrders.length === 0" class="text-center text-gray-500 mt-10">
+                <i class="fas fa-inbox text-4xl mb-2"></i>
+                <p>目前沒有任何訂單</p>
+            </div>
+
+            <!-- 單筆訂單卡片 -->
+            <div 
+                v-for="order in filteredOrders" 
+                :key="order.id" 
+                :class="{'opacity-75 bg-gray-200': order.isCancelled, 'bg-white shadow-md': !order.isCancelled}"
+                class="rounded-xl p-4 mb-4 transition-all relative overflow-hidden"
+            >
+                <div class="flex justify-between items-start mb-2 border-b pb-2">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800" :class="{'line-through text-gray-500': order.isCancelled}">
+                            {{ order.customerName }} 
+                        </h2>
+                        <p class="text-xs text-gray-500">單號: {{ order.id }}</p>
+                    </div>
+                    
+                    <div v-if="order.isCancelled" class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
+                        <i class="fas fa-ban mr-1"></i>已取消
+                    </div>
+                    <div v-else class="text-right">
+                        <span class="text-lg font-bold text-indigo-600">${{ order.totalAmount }}</span>
+                        <p class="text-xs text-gray-500">{{ order.paymentMethod }}</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center mb-3 text-sm">
+                    <span class="text-gray-600"><i class="fas fa-phone mr-1"></i>{{ order.phone }}</span>
+                    <span class="text-gray-500 bg-gray-100 px-2 py-1 rounded">客選: {{ order.customerDelivery }}</span>
+                </div>
+
+                <button 
+                    @click="order.showDetails = !order.showDetails"
+                    class="w-full text-center text-sm text-gray-500 bg-gray-50 py-2 rounded-lg mb-3 hover:bg-gray-100 transition"
+                >
+                    <i :class="order.showDetails ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="mr-1"></i>
+                    {{ order.showDetails ? '收起明細' : `展開訂單明細 (${order.items ? order.items.length : 0}項)` }}
+                </button>
+
+                <div v-if="order.showDetails" class="bg-gray-50 p-3 rounded-lg mb-3 text-sm border">
+                    <p class="text-gray-500 text-xs mb-2">下單時間: {{ order.orderTime }}</p>
+                    <ul class="mb-3">
+                        <li v-for="(item, idx) in order.items" :key="idx" class="flex justify-between border-b border-gray-200 py-1 last:border-0">
+                            <span>
+                                <span class="text-xs bg-gray-200 text-gray-600 px-1 rounded mr-1">{{ item.type }}</span>
+                                {{ item.name }} x{{ item.qty }}
+                            </span>
+                            <span class="text-gray-600">${{ item.subtotal }}</span>
+                        </li>
+                    </ul>
+                    <div v-if="order.address" class="text-gray-600 text-xs mb-1"><i class="fas fa-map-marker-alt mr-1"></i>{{ order.address }}</div>
+                    <div v-if="order.note" class="text-amber-600 text-xs bg-amber-50 p-2 rounded"><i class="fas fa-comment-dots mr-1"></i>備註: {{ order.note }}</div>
+                </div>
+
+                <div v-if="!order.isCancelled" class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-bold text-indigo-800"><i class="fas fa-clipboard-check mr-1"></i>現場操作</h3>
+                        
+                        <!-- 結案按鈕 -->
+                        <label class="flex items-center space-x-1 cursor-pointer">
+                            <input type="checkbox" v-model="order.isCompleted" @change="updateOrder(order)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                            <span class="text-xs font-medium text-indigo-800">整單結案</span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mb-4 bg-white p-2 rounded-lg shadow-sm">
+                        <span class="text-sm font-medium text-gray-700">付款狀態</span>
+                        <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" :id="'pay-'+order.id" v-model="order.isPaid" @change="updateOrder(order)" class="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-all duration-300"/>
+                            <label :for="'pay-'+order.id" class="toggle-label block overflow-hidden h-8 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">取貨處理</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button @click="setDelivery(order, '現貨拿走')" :class="order.deliveryType === '現貨拿走' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">現貨拿走</button>
+                            <button @click="setDelivery(order, '稍後自取')" :class="order.deliveryType === '稍後自取' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">稍後自取</button>
+                            <button @click="setDelivery(order, '展後郵寄')" :class="order.deliveryType === '展後郵寄' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">展後郵寄</button>
+                        </div>
+                    </div>
+
+                    <div v-if="order.deliveryType === '稍後自取'" class="mb-3 animate-fade-in-down">
+                        <label class="block text-xs text-gray-500 mb-1">請設定預計自取時間</label>
+                        <input type="datetime-local" v-model="order.pickupTime" @change="updateOrder(order)" class="w-full p-2 border border-indigo-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div class="flex justify-between items-center mt-4 pt-3 border-t border-indigo-100 text-xs text-gray-500">
+                        <span><i class="fas fa-user-edit mr-1"></i>建立: {{ order.createdBy || '無' }}</span>
+                        <span><i class="fas fa-history mr-1"></i>修改: {{ order.lastModifiedBy || '無' }} ({{ order.lastModifiedTime || '-' }})</span>
+                    </div>
+                </div>
+
+                <div v-else class="text-center py-2 text-red-500 text-sm font-medium bg-red-50 rounded-lg mt-2">
+                    <i class="fas fa-exclamation-triangle mr-1"></i> 客戶已取消此訂單，禁止操作
+                </div>
+            </div>
+            
+            <!-- 重整按鈕 -->
+            <button @click="fetchOrders" class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </main>
+
+        <!-- 🔥 新增：同步成功的綠色小提示框 (Toast) -->
+        <div v-if="showToast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-2 animate-fade-in-up z-50">
+            <i class="fas fa-check-circle"></i>
+            <span class="font-bold text-sm">已同步至雲端</span>
+        </div>
+
+        <!-- 🔥 新增：高質感的員工登入彈窗 -->
+        <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up">
+                <div class="bg-indigo-600 p-6 text-center">
+                    <i class="fas fa-user-circle text-5xl text-indigo-200 mb-3"></i>
+                    <h2 class="text-xl font-bold text-white">工作人員登入</h2>
+                    <p class="text-indigo-200 text-xs mt-1">無須密碼，輸入名稱即可開始</p>
+                </div>
+                <div class="p-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">請輸入您的姓名 / 代號</label>
+                    <input 
+                        v-model="tempUserName" 
+                        @keyup.enter="confirmLogin" 
+                        type="text" 
+                        placeholder="例如：小明 或 A01" 
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-4 text-center text-lg font-bold text-gray-800"
+                    >
+                    <button 
+                        @click="confirmLogin" 
+                        :disabled="!tempUserName.trim()"
+                        :class="tempUserName.trim() ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-300 cursor-not-allowed'"
+                        class="w-full text-white font-bold py-3 rounded-lg transition shadow-md"
+                    >
+                        進入系統
+                    </button>
+                    <!-- 如果已經登入過，允許點擊取消關閉視窗 -->
+                    <button v-if="currentUser !== '請點擊登入'" @click="showLoginModal = false" class="w-full mt-3 text-gray-500 py-2 text-sm hover:bg-gray-100 rounded-lg transition">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        // 🔥 沒錯！就是這個結尾是 /exec 的網址，這才是真正的 API 本體！
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxbyKjq5uzRechBvi5J-z61l9NCCPtSMF6d820D60EQjOkbIUjEHinyCeohLPR1P70mGw/exec';
+
+        createApp({
+            setup() {
+                const currentUser = ref('請點擊登入'); 
+                const searchQuery = ref('');
+                const orders = ref([]);
+                const isLoading = ref(true);
+                const fetchError = ref(false); // 控制錯誤面板顯示
+                const showToast = ref(false); // 控制成功提示框
+                
+                // 🔥 新增：登入彈窗的狀態控制
+                const showLoginModal = ref(false);
+                const tempUserName = ref('');
+
+                const fetchOrders = async () => {
+                    isLoading.value = true;
+                    fetchError.value = false;
+                    try {
+                        const response = await fetch(API_URL);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP 錯誤狀態: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            throw new Error(`後端程式碼錯誤: ${data.error}`);
+                        }
+
+                        // 強化取消判斷，並反轉陣列讓新訂單在最上面
+                        orders.value = data.map(order => {
+                            // 只要支付方式裡面包含「取消」兩個字，就強制判定為取消防呆
+                            if (order.paymentMethod && order.paymentMethod.includes('取消')) {
+                                order.isCancelled = true;
+                            }
+                            return order;
+                        }).reverse(); 
+                    } catch (error) {
+                        console.error('抓取資料失敗:', error);
+                        fetchError.value = true; // 觸發顯示錯誤面板
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                onMounted(() => {
+                    const savedUser = localStorage.getItem('staffName');
+                    if (savedUser) {
+                        currentUser.value = savedUser;
+                    } else {
+                        // 如果沒有登入過，直接彈出高質感登入視窗
+                        showLoginModal.value = true;
+                    }
+                    fetchOrders();
+                });
+
+                const filteredOrders = computed(() => {
+                    const query = searchQuery.value.toLowerCase();
+                    if (!query) return orders.value;
+                    return orders.value.filter(order => 
+                        (order.customerName && order.customerName.toLowerCase().includes(query)) ||
+                        (order.phone && order.phone.includes(query)) ||
+                        (order.id && order.id.toLowerCase().includes(query))
+                    );
+                });
+
+                // 🔥 更新：點擊頂部名字時，打開登入彈窗而不是醜醜的 prompt
+                const changeUser = () => {
+                    tempUserName.value = currentUser.value === '請點擊登入' ? '' : currentUser.value;
+                    showLoginModal.value = true;
+                };
+
+                // 🔥 新增：確認登入邏輯
+                const confirmLogin = () => {
+                    if (tempUserName.value.trim()) {
+                        currentUser.value = tempUserName.value.trim();
+                        localStorage.setItem('staffName', currentUser.value);
+                        showLoginModal.value = false; // 關閉彈窗
+                    }
+                };
+
+                const setDelivery = (order, type) => {
+                    if(order.isCancelled) return; 
+                    order.deliveryType = order.deliveryType === type ? '' : type; 
+                    if(order.deliveryType !== '稍後自取') order.pickupTime = ''; 
+                    updateOrder(order);
+                };
+
+                const updateOrder = async (order) => {
+                    if(order.isCancelled) return; 
+
+                    if (!order.createdBy) order.createdBy = currentUser.value;
+                    order.lastModifiedBy = currentUser.value;
+                    
+                    const now = new Date();
+                    const modifyTime = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    order.lastModifiedTime = modifyTime;
+
+                    const payload = {
+                        id: order.id,
+                        customerName: order.customerName,
+                        isPaid: order.isPaid,
+                        deliveryType: order.deliveryType,
+                        pickupTime: order.pickupTime,
+                        createdBy: order.createdBy, // 🔥 補上這一行，把結帳人打包送出
+                        lastModifiedBy: order.lastModifiedBy,
+                        lastModifiedTime: modifyTime,
+                        isCompleted: order.isCompleted
+                    };
+
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            redirect: 'follow', 
+                            headers: {
+                                "Content-Type": "text/plain;charset=utf-8",
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            console.log('單號', order.id, '狀態已同步至雲端');
+                            // 🔥 顯示成功提示框 2 秒鐘
+                            showToast.value = true;
+                            setTimeout(() => { showToast.value = false; }, 2000);
+                        } else {
+                            throw new Error(result.message || '未知錯誤');
+                        }
+                    } catch (error) {
+                        console.error('更新失敗:', error);
+                        alert(`寫入失敗：${error.message}\n請重新整理頁面再試一次。`);
+                    }
+                };
+
+                return {
+                    apiUrl: API_URL, 
+                    currentUser,
+                    searchQuery,
+                    orders,
+                    filteredOrders,
+                    isLoading,
+                    fetchError,
+                    showToast,
+                    showLoginModal,
+                    tempUserName,
+                    fetchOrders,
+                    changeUser,
+                    confirmLogin,
+                    setDelivery,
+                    updateOrder
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
