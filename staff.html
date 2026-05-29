@@ -9,213 +9,222 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         ::-webkit-scrollbar { display: none; }
-        body { -ms-overflow-style: none; scrollbar-width: none; background-color: #f3f4f6; }
-        .toggle-checkbox:checked { right: 0; border-color: #10B981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
-        .loader { border-top-color: #4f46e5; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        /* 背景使用您提供的最淺色 #EFEFF1 */
+        body { -ms-overflow-style: none; scrollbar-width: none; background-color: #EFEFF1; } 
+        /* 滑桿開啟時使用紫羅蘭色 #C9CBE0 */
+        .toggle-checkbox:checked { right: 0; border-color: #C9CBE0; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #C9CBE0; }
+        .loader { border-top-color: #C9CBE0; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div id="app" class="max-w-md mx-auto min-h-screen pb-20 relative">
         
-        <!-- 頂部導航 -->
-        <header class="bg-indigo-600 text-white p-4 sticky top-0 z-50 shadow-md">
+        <!-- 頂部導航：使用粉藍色 #CCDBE2 -->
+        <header class="bg-[#CCDBE2] text-gray-900 p-4 sticky top-0 z-50 shadow-md border-b-2 border-gray-300">
             <div class="flex justify-between items-center mb-3">
-                <h1 class="text-xl font-bold"><i class="fas fa-boxes mr-2"></i>展場理貨系統</h1>
-                <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full flex items-center cursor-pointer" @click="changeUser">
-                    <i class="fas fa-user-circle mr-1"></i> {{ currentUser }}
+                <h1 class="text-2xl font-black"><i class="fas fa-boxes mr-2"></i>展場理貨系統</h1>
+                <div class="text-base bg-white/70 px-3 py-1 rounded-full flex items-center cursor-pointer font-bold border border-gray-400 shadow-sm" @click="changeUser">
+                    <i class="fas fa-user-circle mr-1 text-gray-700"></i> {{ currentUser }}
                 </div>
             </div>
             
-            <div class="relative">
-                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+            <div class="relative mt-4">
+                <i class="fas fa-search absolute left-3 top-3.5 text-gray-600 text-lg"></i>
                 <input 
                     v-model="searchQuery" 
                     type="text" 
                     placeholder="搜尋姓名、電話、單號..." 
-                    class="w-full pl-10 pr-4 py-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    class="w-full pl-10 pr-4 py-3 rounded-lg text-gray-900 font-bold focus:outline-none focus:ring-4 focus:ring-[#C9CBE0] border-2 border-gray-400 text-lg shadow-sm"
                 >
             </div>
         </header>
 
         <!-- 載入中動畫 -->
-        <div v-if="isLoading" class="flex flex-col justify-center items-center h-64 text-indigo-600">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-            <p class="font-semibold text-gray-600">正在同步雲端訂單...</p>
+        <div v-if="isLoading" class="flex flex-col justify-center items-center h-64 text-gray-700">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-300 h-14 w-14 mb-4"></div>
+            <p class="font-bold text-lg">正在同步雲端訂單...</p>
         </div>
 
         <!-- 訂單列表區 -->
         <main v-else class="p-4">
             
-            <!-- 🔥 新增：連線錯誤的超詳細除錯面板 -->
-            <div v-if="fetchError" class="bg-red-50 p-4 rounded-xl mb-6 border border-red-200 shadow-sm animate-fade-in-down">
-                <h3 class="text-red-800 font-bold mb-2 text-lg"><i class="fas fa-exclamation-triangle mr-2"></i>連線到後端失敗</h3>
-                <p class="text-sm text-red-600 mb-3 leading-relaxed">
+            <!-- 連線錯誤面板 -->
+            <div v-if="fetchError" class="bg-red-50 p-4 rounded-xl mb-6 border-2 border-red-300 shadow-sm animate-fade-in-down">
+                <h3 class="text-red-800 font-black mb-2 text-xl"><i class="fas fa-exclamation-triangle mr-2"></i>連線到後端失敗</h3>
+                <p class="text-base text-red-700 mb-3 font-bold">
                     這通常代表您的 Google Apps Script <strong>當機了</strong>。<br>
                     當後端發生錯誤時，瀏覽器會阻擋連線，產生 <code>Failed to fetch</code> 錯誤。
                 </p>
-                <div class="text-sm text-gray-700 bg-white p-3 rounded border mb-4 leading-relaxed">
-                    <strong class="text-gray-900">常見的當機原因：</strong>
-                    <ol class="list-decimal list-inside mt-2 space-y-1">
-                        <li>忘記把程式碼裡的 <code class="bg-gray-100 text-pink-600 px-1 rounded text-xs">SHEET_ID</code> 換成您真實的試算表 ID。</li>
-                        <li>試算表底下沒有建立 <code class="bg-gray-100 text-pink-600 px-1 rounded text-xs">工作人員狀態</code> 分頁。</li>
-                        <li>部署時權限沒有設定為 <strong>「所有人」</strong>。</li>
-                        <li>改完程式碼後，發布時忘記選擇 <strong>「建立新版本」</strong>。</li>
+                <div class="text-base text-gray-900 bg-white p-3 rounded border-2 border-red-200 mb-4 font-bold">
+                    <strong class="text-xl">常見的當機原因：</strong>
+                    <ol class="list-decimal list-inside mt-2 space-y-2">
+                        <li>忘記換 <code class="bg-gray-200 text-red-600 px-1 rounded">SHEET_ID</code>。</li>
+                        <li>沒有建立 <code class="bg-gray-200 text-red-600 px-1 rounded">工作人員狀態</code> 分頁。</li>
+                        <li>權限沒有設定為 <strong>「所有人」</strong>。</li>
+                        <li>發布時忘記選擇 <strong>「建立新版本」</strong>。</li>
                     </ol>
                 </div>
-                <p class="text-xs text-red-500 mb-2 font-bold">👇 請點擊下方按鈕，直接看 Google 噴出什麼錯誤：</p>
-                <a :href="apiUrl" target="_blank" class="block text-center w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition shadow-md">
-                    <i class="fas fa-external-link-alt mr-1"></i> 點我打開後端 API 檢查錯誤
+                <a :href="apiUrl" target="_blank" class="block text-center w-full bg-red-600 text-white font-black py-4 rounded-lg shadow-md text-lg">
+                    <i class="fas fa-external-link-alt mr-1"></i> 點我打開 API 檢查錯誤
                 </a>
             </div>
 
-            <div v-if="!fetchError && filteredOrders.length === 0" class="text-center text-gray-500 mt-10">
-                <i class="fas fa-inbox text-4xl mb-2"></i>
-                <p>目前沒有任何訂單</p>
+            <div v-if="!fetchError && filteredOrders.length === 0" class="text-center text-gray-600 mt-10">
+                <i class="fas fa-inbox text-5xl mb-3 text-gray-400"></i>
+                <p class="text-xl font-bold">目前沒有任何訂單</p>
             </div>
 
             <!-- 單筆訂單卡片 -->
+            <!-- 已經取消的訂單背景使用粉紅色 #ECD4D4 -->
             <div 
                 v-for="order in filteredOrders" 
                 :key="order.id" 
-                :class="{'opacity-75 bg-gray-200': order.isCancelled, 'bg-white shadow-md': !order.isCancelled}"
-                class="rounded-xl p-4 mb-4 transition-all relative overflow-hidden"
+                :class="{'opacity-80 bg-[#ECD4D4] border-2 border-gray-400': order.isCancelled, 'bg-white shadow-lg border border-gray-200': !order.isCancelled}"
+                class="rounded-xl p-4 mb-5 transition-all relative overflow-hidden"
             >
-                <div class="flex justify-between items-start mb-2 border-b pb-2">
+                <div class="flex justify-between items-start mb-3 border-b-2 border-gray-200 pb-3">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800" :class="{'line-through text-gray-500': order.isCancelled}">
+                        <h2 class="text-2xl font-black text-gray-900" :class="{'line-through text-gray-600': order.isCancelled}">
                             {{ order.customerName }} 
                         </h2>
-                        <p class="text-xs text-gray-500">單號: {{ order.id }}</p>
+                        <p class="text-sm font-bold text-gray-600 mt-1">單號: {{ order.id }}</p>
                     </div>
                     
-                    <div v-if="order.isCancelled" class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
+                    <div v-if="order.isCancelled" class="bg-gray-800 text-white text-sm font-bold px-3 py-1.5 rounded shadow-sm">
                         <i class="fas fa-ban mr-1"></i>已取消
                     </div>
                     <div v-else class="text-right">
-                        <span class="text-lg font-bold text-indigo-600">${{ order.totalAmount }}</span>
-                        <p class="text-xs text-gray-500">{{ order.paymentMethod }}</p>
+                        <span class="text-2xl font-black text-gray-900">${{ order.totalAmount }}</span>
+                        <p class="text-sm font-bold text-gray-600">{{ order.paymentMethod }}</p>
                     </div>
                 </div>
 
-                <div class="flex justify-between items-center mb-3 text-sm">
-                    <span class="text-gray-600"><i class="fas fa-phone mr-1"></i>{{ order.phone }}</span>
-                    <span class="text-gray-500 bg-gray-100 px-2 py-1 rounded">客選: {{ order.customerDelivery }}</span>
+                <div class="flex justify-between items-center mb-4 text-base font-bold">
+                    <span class="text-gray-900"><i class="fas fa-phone mr-1 text-gray-600"></i>{{ order.phone }}</span>
+                    <!-- 客選方式標籤使用粉藍色 #CCDBE2 -->
+                    <span class="text-gray-900 bg-[#CCDBE2]/60 border border-gray-400 px-2 py-1 rounded">客選: {{ order.customerDelivery }}</span>
                 </div>
 
                 <button 
                     @click="order.showDetails = !order.showDetails"
-                    class="w-full text-center text-sm text-gray-500 bg-gray-50 py-2 rounded-lg mb-3 hover:bg-gray-100 transition"
+                    class="w-full text-center text-base font-bold text-gray-800 bg-gray-100 border-2 border-gray-300 py-3 rounded-lg mb-4 hover:bg-gray-200 transition shadow-sm"
                 >
                     <i :class="order.showDetails ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="mr-1"></i>
                     {{ order.showDetails ? '收起明細' : `展開訂單明細 (${order.items ? order.items.length : 0}項)` }}
                 </button>
 
-                <div v-if="order.showDetails" class="bg-gray-50 p-3 rounded-lg mb-3 text-sm border">
-                    <p class="text-gray-500 text-xs mb-2">下單時間: {{ order.orderTime }}</p>
-                    <ul class="mb-3">
-                        <li v-for="(item, idx) in order.items" :key="idx" class="flex justify-between border-b border-gray-200 py-1 last:border-0">
-                            <span>
-                                <span class="text-xs bg-gray-200 text-gray-600 px-1 rounded mr-1">{{ item.type }}</span>
-                                {{ item.name }} x{{ item.qty }}
+                <div v-if="order.showDetails" class="bg-gray-50 p-4 rounded-lg mb-4 text-base border-2 border-gray-200">
+                    <p class="text-gray-700 text-sm font-bold mb-3">下單時間: {{ order.orderTime }}</p>
+                    <ul class="mb-4">
+                        <li v-for="(item, idx) in order.items" :key="idx" class="flex justify-between border-b border-gray-300 py-2 last:border-0 font-bold text-gray-900">
+                            <span class="flex-1 pr-2">
+                                <span class="text-sm bg-gray-300 text-gray-800 px-1.5 py-0.5 rounded mr-1 inline-block mb-1">{{ item.type }}</span>
+                                {{ item.name }} <span class="text-gray-500 ml-1">x{{ item.qty }}</span>
                             </span>
-                            <span class="text-gray-600">${{ item.subtotal }}</span>
+                            <span class="text-gray-900 whitespace-nowrap">${{ item.subtotal }}</span>
                         </li>
                     </ul>
-                    <div v-if="order.address" class="text-gray-600 text-xs mb-1"><i class="fas fa-map-marker-alt mr-1"></i>{{ order.address }}</div>
-                    <div v-if="order.note" class="text-amber-600 text-xs bg-amber-50 p-2 rounded"><i class="fas fa-comment-dots mr-1"></i>備註: {{ order.note }}</div>
+                    <div v-if="order.address" class="text-gray-900 text-sm font-bold mb-2"><i class="fas fa-map-marker-alt mr-1 text-gray-500"></i>{{ order.address }}</div>
+                    
+                    <!-- 備註底色使用粉紅色 #ECD4D4 凸顯 -->
+                    <div v-if="order.note" class="text-gray-900 font-bold text-base bg-[#ECD4D4] border border-gray-400 p-3 rounded shadow-sm">
+                        <i class="fas fa-comment-dots mr-1"></i>客人備註: {{ order.note }}
+                    </div>
                 </div>
 
-                <div v-if="!order.isCancelled" class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm font-bold text-indigo-800"><i class="fas fa-clipboard-check mr-1"></i>現場操作</h3>
+                <!-- 現場操作區塊底色使用淡淡的粉紅色 #ECD4D4/30 -->
+                <div v-if="!order.isCancelled" class="bg-[#ECD4D4]/30 p-4 rounded-xl border-2 border-[#ECD4D4]">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-black text-gray-900"><i class="fas fa-clipboard-check mr-2 text-gray-600"></i>現場操作</h3>
                         
-                        <!-- 結案按鈕 -->
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" v-model="order.isCompleted" @change="updateOrder(order)" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
-                            <span class="text-xs font-medium text-indigo-800">整單結案</span>
+                        <!-- 結案按鈕：勾選時為紫羅蘭色 #C9CBE0 -->
+                        <label class="flex items-center space-x-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border-2 border-gray-300 shadow-sm">
+                            <input type="checkbox" v-model="order.isCompleted" @change="updateOrder(order)" class="rounded text-[#C9CBE0] focus:ring-[#C9CBE0] h-5 w-5">
+                            <span class="text-sm font-bold text-gray-900">整單結案</span>
                         </label>
                     </div>
                     
-                    <div class="flex items-center justify-between mb-4 bg-white p-2 rounded-lg shadow-sm">
-                        <span class="text-sm font-medium text-gray-700">付款狀態</span>
+                    <div class="flex items-center justify-between mb-5 bg-white p-3 rounded-lg shadow-sm border-2 border-gray-200">
+                        <span class="text-lg font-black text-gray-900">付款狀態</span>
                         <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" :id="'pay-'+order.id" v-model="order.isPaid" @change="updateOrder(order)" class="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-all duration-300"/>
+                            <input type="checkbox" :id="'pay-'+order.id" v-model="order.isPaid" @change="updateOrder(order)" class="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 border-gray-300 appearance-none cursor-pointer z-10 transition-all duration-300"/>
                             <label :for="'pay-'+order.id" class="toggle-label block overflow-hidden h-8 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300"></label>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">取貨處理</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button @click="setDelivery(order, '現貨拿走')" :class="order.deliveryType === '現貨拿走' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">現貨拿走</button>
-                            <button @click="setDelivery(order, '稍後自取')" :class="order.deliveryType === '稍後自取' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">稍後自取</button>
-                            <button @click="setDelivery(order, '展後郵寄')" :class="order.deliveryType === '展後郵寄' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-300'" class="text-xs py-2 rounded-lg transition">展後郵寄</button>
+                    <div class="mb-4">
+                        <label class="block text-base font-black text-gray-900 mb-2">取貨處理</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <!-- 選中時使用紫羅蘭色 #C9CBE0，保留粗邊框深色字 -->
+                            <button @click="setDelivery(order, '現貨拿走')" :class="order.deliveryType === '現貨拿走' ? 'bg-[#C9CBE0] text-gray-900 border-2 border-gray-600 shadow-md' : 'bg-white text-gray-700 border-2 border-gray-300'" class="text-sm font-bold py-3 rounded-lg transition">現貨拿走</button>
+                            <button @click="setDelivery(order, '稍後自取')" :class="order.deliveryType === '稍後自取' ? 'bg-[#C9CBE0] text-gray-900 border-2 border-gray-600 shadow-md' : 'bg-white text-gray-700 border-2 border-gray-300'" class="text-sm font-bold py-3 rounded-lg transition">稍後自取</button>
+                            <button @click="setDelivery(order, '展後郵寄')" :class="order.deliveryType === '展後郵寄' ? 'bg-[#C9CBE0] text-gray-900 border-2 border-gray-600 shadow-md' : 'bg-white text-gray-700 border-2 border-gray-300'" class="text-sm font-bold py-3 rounded-lg transition">展後郵寄</button>
                         </div>
                     </div>
 
-                    <div v-if="order.deliveryType === '稍後自取'" class="mb-3 animate-fade-in-down">
-                        <label class="block text-xs text-gray-500 mb-1">請設定預計自取時間</label>
-                        <input type="datetime-local" v-model="order.pickupTime" @change="updateOrder(order)" class="w-full p-2 border border-indigo-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <div v-if="order.deliveryType === '稍後自取'" class="mb-4 animate-fade-in-down">
+                        <label class="block text-sm font-bold text-gray-800 mb-1">請設定預計自取時間</label>
+                        <input type="datetime-local" v-model="order.pickupTime" @change="updateOrder(order)" class="w-full p-3 border-2 border-gray-400 rounded-lg text-base font-bold text-gray-900 focus:ring-4 focus:ring-[#C9CBE0] outline-none">
                     </div>
 
-                    <!-- 🔥 新增：人員備註欄位 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">人員備註</label>
-                        <textarea v-model="order.staffNote" @change="updateOrder(order)" placeholder="輸入備註 (例如：客人說晚點來拿)..." class="w-full p-2 border border-indigo-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" rows="2"></textarea>
+                    <div class="mb-4">
+                        <label class="block text-base font-black text-gray-900 mb-2">人員備註</label>
+                        <textarea v-model="order.staffNote" @change="updateOrder(order)" placeholder="輸入備註 (例如：客人說晚點來拿)..." class="w-full p-3 border-2 border-gray-400 rounded-lg text-base font-bold text-gray-900 focus:ring-4 focus:ring-[#C9CBE0] outline-none resize-none shadow-inner" rows="2"></textarea>
                     </div>
 
-                    <div class="flex justify-between items-center mt-4 pt-3 border-t border-indigo-100 text-xs text-gray-500">
-                        <span><i class="fas fa-user-edit mr-1"></i>建立: {{ order.createdBy || '無' }}</span>
-                        <span><i class="fas fa-history mr-1"></i>修改: {{ order.lastModifiedBy || '無' }} ({{ order.lastModifiedTime || '-' }})</span>
+                    <div class="flex justify-between items-center mt-5 pt-4 border-t-2 border-gray-300 text-sm font-bold text-gray-700">
+                        <span><i class="fas fa-user-edit mr-1 text-gray-500"></i>建立: {{ order.createdBy || '無' }}</span>
+                        <span><i class="fas fa-history mr-1 text-gray-500"></i>修改: {{ order.lastModifiedBy || '無' }} ({{ order.lastModifiedTime || '-' }})</span>
                     </div>
                 </div>
 
-                <div v-else class="text-center py-2 text-red-500 text-sm font-medium bg-red-50 rounded-lg mt-2">
-                    <i class="fas fa-exclamation-triangle mr-1"></i> 客戶已取消此訂單，禁止操作
+                <div v-else class="text-center py-3 text-gray-900 text-base font-bold bg-gray-300 rounded-lg mt-3 border border-gray-400 shadow-inner">
+                    <i class="fas fa-ban mr-1 text-red-600"></i> 此訂單已作廢，禁止操作
                 </div>
             </div>
             
-            <!-- 重整按鈕 -->
-            <button @click="fetchOrders" class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition">
-                <i class="fas fa-sync-alt"></i>
+            <!-- 重整按鈕：使用粉藍色 #CCDBE2 -->
+            <button @click="fetchOrders" class="fixed bottom-6 right-6 bg-[#CCDBE2] text-gray-900 p-5 rounded-full shadow-2xl border-4 border-white hover:bg-[#b0c0ca] transition z-40">
+                <i class="fas fa-sync-alt text-2xl"></i>
             </button>
         </main>
 
-        <!-- 🔥 新增：同步成功的綠色小提示框 (Toast) -->
-        <div v-if="showToast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-2 animate-fade-in-up z-50">
-            <i class="fas fa-check-circle"></i>
-            <span class="font-bold text-sm">已同步至雲端</span>
+        <!-- 同步成功的綠色小提示框：使用紫羅蘭色 #C9CBE0 -->
+        <div v-if="showToast" class="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-[#C9CBE0] text-gray-900 border-2 border-gray-600 px-8 py-4 rounded-full shadow-2xl flex items-center space-x-2 animate-fade-in-up z-50">
+            <i class="fas fa-check-circle text-xl"></i>
+            <span class="font-black text-base">已同步至雲端</span>
         </div>
 
-        <!-- 🔥 新增：高質感的員工登入彈窗 -->
-        <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up">
-                <div class="bg-indigo-600 p-6 text-center">
-                    <i class="fas fa-user-circle text-5xl text-indigo-200 mb-3"></i>
-                    <h2 class="text-xl font-bold text-white">工作人員登入</h2>
-                    <p class="text-indigo-200 text-xs mt-1">無須密碼，輸入名稱即可開始</p>
+        <!-- 員工登入彈窗 -->
+        <div v-if="showLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-[#CCDBE2]">
+                <!-- Header 使用粉藍色 #CCDBE2 -->
+                <div class="bg-[#CCDBE2] p-6 text-center border-b-2 border-gray-300">
+                    <i class="fas fa-user-circle text-6xl text-gray-800 mb-3 drop-shadow-md"></i>
+                    <h2 class="text-2xl font-black text-gray-900">工作人員登入</h2>
+                    <p class="text-gray-800 font-bold text-sm mt-1">無須密碼，輸入名稱即可</p>
                 </div>
-                <div class="p-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">請輸入您的姓名 / 代號</label>
+                <div class="p-6 bg-[#EFEFF1]">
+                    <label class="block text-base font-black text-gray-900 mb-2">請輸入您的姓名 / 代號</label>
                     <input 
                         v-model="tempUserName" 
                         @keyup.enter="confirmLogin" 
                         type="text" 
                         placeholder="例如：小明 或 A01" 
-                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-4 text-center text-lg font-bold text-gray-800"
+                        class="w-full p-4 border-2 border-gray-400 rounded-lg focus:ring-4 focus:ring-[#C9CBE0] focus:border-[#C9CBE0] outline-none mb-5 text-center text-xl font-black text-gray-900 shadow-inner"
                     >
+                    <!-- 按鈕使用紫羅蘭色 #C9CBE0 -->
                     <button 
                         @click="confirmLogin" 
                         :disabled="!tempUserName.trim()"
-                        :class="tempUserName.trim() ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-300 cursor-not-allowed'"
-                        class="w-full text-white font-bold py-3 rounded-lg transition shadow-md"
+                        :class="tempUserName.trim() ? 'bg-[#C9CBE0] hover:bg-[#b5b8d0] text-gray-900 border-2 border-gray-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
+                        class="w-full font-black py-4 rounded-lg transition shadow-md text-lg"
                     >
                         進入系統
                     </button>
-                    <!-- 如果已經登入過，允許點擊取消關閉視窗 -->
-                    <button v-if="currentUser !== '請點擊登入'" @click="showLoginModal = false" class="w-full mt-3 text-gray-500 py-2 text-sm hover:bg-gray-100 rounded-lg transition">
+                    <button v-if="currentUser !== '請點擊登入'" @click="showLoginModal = false" class="w-full mt-4 text-gray-700 font-bold py-3 text-base hover:bg-gray-200 rounded-lg transition border border-gray-300">
                         取消
                     </button>
                 </div>
@@ -226,7 +235,6 @@
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
-        // 🔥 沒錯！就是這個結尾是 /exec 的網址，這才是真正的 API 本體！
         const API_URL = 'https://script.google.com/macros/s/AKfycbxbyKjq5uzRechBvi5J-z61l9NCCPtSMF6d820D60EQjOkbIUjEHinyCeohLPR1P70mGw/exec';
 
         createApp({
@@ -235,10 +243,9 @@
                 const searchQuery = ref('');
                 const orders = ref([]);
                 const isLoading = ref(true);
-                const fetchError = ref(false); // 控制錯誤面板顯示
-                const showToast = ref(false); // 控制成功提示框
+                const fetchError = ref(false); 
+                const showToast = ref(false); 
                 
-                // 🔥 新增：登入彈窗的狀態控制
                 const showLoginModal = ref(false);
                 const tempUserName = ref('');
 
@@ -258,9 +265,7 @@
                             throw new Error(`後端程式碼錯誤: ${data.error}`);
                         }
 
-                        // 強化取消判斷，並反轉陣列讓新訂單在最上面
                         orders.value = data.map(order => {
-                            // 只要支付方式裡面包含「取消」兩個字，就強制判定為取消防呆
                             if (order.paymentMethod && order.paymentMethod.includes('取消')) {
                                 order.isCancelled = true;
                             }
@@ -268,7 +273,7 @@
                         }).reverse(); 
                     } catch (error) {
                         console.error('抓取資料失敗:', error);
-                        fetchError.value = true; // 觸發顯示錯誤面板
+                        fetchError.value = true; 
                     } finally {
                         isLoading.value = false;
                     }
@@ -279,7 +284,6 @@
                     if (savedUser) {
                         currentUser.value = savedUser;
                     } else {
-                        // 如果沒有登入過，直接彈出高質感登入視窗
                         showLoginModal.value = true;
                     }
                     fetchOrders();
@@ -295,18 +299,16 @@
                     );
                 });
 
-                // 🔥 更新：點擊頂部名字時，打開登入彈窗而不是醜醜的 prompt
                 const changeUser = () => {
                     tempUserName.value = currentUser.value === '請點擊登入' ? '' : currentUser.value;
                     showLoginModal.value = true;
                 };
 
-                // 🔥 新增：確認登入邏輯
                 const confirmLogin = () => {
                     if (tempUserName.value.trim()) {
                         currentUser.value = tempUserName.value.trim();
                         localStorage.setItem('staffName', currentUser.value);
-                        showLoginModal.value = false; // 關閉彈窗
+                        showLoginModal.value = false; 
                     }
                 };
 
@@ -333,7 +335,7 @@
                         isPaid: order.isPaid,
                         deliveryType: order.deliveryType,
                         pickupTime: order.pickupTime,
-                        staffNote: order.staffNote, // 🔥 補上人員備註，打包送出
+                        staffNote: order.staffNote, 
                         createdBy: order.createdBy,
                         lastModifiedBy: order.lastModifiedBy,
                         lastModifiedTime: modifyTime,
@@ -354,7 +356,6 @@
                         
                         if (result.status === 'success') {
                             console.log('單號', order.id, '狀態已同步至雲端');
-                            // 🔥 顯示成功提示框 2 秒鐘
                             showToast.value = true;
                             setTimeout(() => { showToast.value = false; }, 2000);
                         } else {
