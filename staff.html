@@ -106,8 +106,8 @@
 
                 <div class="flex justify-between items-center mb-4 text-base font-bold">
                     <span class="text-gray-900"><i class="fas fa-phone mr-1 text-gray-600"></i>{{ order.phone }}</span>
-                    <!-- 客選方式標籤使用粉藍色 #CCDBE2 -->
-                    <span class="text-gray-900 bg-[#CCDBE2]/60 border border-gray-400 px-2 py-1 rounded">客選: {{ order.customerDelivery }}</span>
+                    <!-- 🔥 顏色區分：取貨方式 -->
+                    <span :class="getDeliveryBadgeClass(order.customerDelivery)">客選: {{ order.customerDelivery }}</span>
                 </div>
 
                 <button 
@@ -121,13 +121,14 @@
                 <div v-if="order.showDetails" class="bg-gray-50 p-4 rounded-lg mb-4 text-base border-2 border-gray-200">
                     <p class="text-gray-700 text-sm font-bold mb-3">下單時間: {{ order.orderTime }}</p>
                     <ul class="mb-4">
-                        <li v-for="(item, idx) in order.items" :key="idx" class="flex justify-between border-b border-gray-300 py-2 last:border-0 font-bold text-gray-900">
-                            <span class="flex-1 pr-2">
-                                <span class="text-sm bg-gray-300 text-gray-800 px-1.5 py-0.5 rounded mr-1 inline-block mb-1">{{ item.type }}</span>
+                        <li v-for="(item, idx) in order.items" :key="idx" class="flex justify-between border-b border-gray-300 py-3 last:border-0 font-bold text-gray-900 items-start">
+                            <span class="flex-1 pr-2 leading-relaxed">
+                                <!-- 🔥 顏色區分：商品屬性 (預購/現貨) -->
+                                <span :class="getItemBadgeClass(item.type)">{{ item.type }}</span>
                                 {{ item.name }} <span class="text-gray-500 ml-1">x{{ item.qty }}</span>
                             </span>
                             <!-- 小計金額也改成紅色並加粗 -->
-                            <span class="text-red-600 font-black whitespace-nowrap">${{ item.subtotal }}</span>
+                            <span class="text-red-600 font-black whitespace-nowrap mt-1">${{ item.subtotal }}</span>
                         </li>
                     </ul>
                     <div v-if="order.address" class="text-gray-900 text-sm font-bold mb-2"><i class="fas fa-map-marker-alt mr-1 text-gray-500"></i>{{ order.address }}</div>
@@ -201,7 +202,7 @@
             <span class="font-black text-base">已同步至雲端</span>
         </div>
 
-        <!-- 🔥 新增：自訂系統警示彈窗 (取代 alert) -->
+        <!-- 自訂系統警示彈窗 -->
         <div v-if="alertMessage" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[120] flex justify-center items-center p-4 backdrop-blur-sm">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-red-300 p-6 text-center">
                 <i class="fas fa-exclamation-circle text-5xl text-red-500 mb-4"></i>
@@ -213,7 +214,7 @@
             </div>
         </div>
 
-        <!-- 🔥 新增：登出確認彈窗 (取代 confirm) -->
+        <!-- 登出確認彈窗 -->
         <div v-if="showLogoutConfirm" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[110] flex justify-center items-center p-4 backdrop-blur-sm">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-[#CCDBE2] p-6 text-center">
                 <i class="fas fa-sign-out-alt text-5xl text-red-500 mb-4 drop-shadow-md"></i>
@@ -226,7 +227,7 @@
             </div>
         </div>
 
-        <!-- 員工登入彈窗 (加入帳號密碼) -->
+        <!-- 員工登入彈窗 -->
         <div v-if="showLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-[#CCDBE2]">
                 <div class="bg-[#CCDBE2] p-6 text-center border-b-2 border-gray-300">
@@ -282,12 +283,40 @@
                 
                 // 彈窗控制變數
                 const showLoginModal = ref(false);
-                const showLogoutConfirm = ref(false); // 控制登出確認彈窗
-                const alertMessage = ref(''); // 取代預設的 alert
+                const showLogoutConfirm = ref(false); 
+                const alertMessage = ref(''); 
                 
                 const tempUserAccount = ref('');
                 const tempPassword = ref('');
                 const isLoggingIn = ref(false);
+
+                // 🔥 判斷取貨方式顏色標籤的工具函式
+                const getDeliveryBadgeClass = (text) => {
+                    if (!text) return 'bg-[#CCDBE2]/60 border border-gray-400 text-gray-900 px-3 py-1.5 rounded-lg';
+                    
+                    if (text.includes('預購')) {
+                        // 有包含「預購」：粉紅底色、深紅粗體字、紅色粗邊框，非常醒目
+                        return 'bg-[#ECD4D4] text-red-900 border-2 border-red-500 shadow-sm font-black text-sm px-3 py-1.5 rounded-lg';
+                    } else if (text.includes('全部現貨')) {
+                        // 全部現貨：紫羅蘭底色、深藍字、深藍粗邊框，安全色
+                        return 'bg-[#C9CBE0] text-indigo-900 border-2 border-indigo-600 shadow-sm font-black text-sm px-3 py-1.5 rounded-lg';
+                    }
+                    
+                    // 其他預設：粉藍底色
+                    return 'bg-[#CCDBE2]/60 border border-gray-400 text-gray-900 px-3 py-1.5 rounded-lg font-bold';
+                };
+
+                // 🔥 判斷商品明細屬性標籤的工具函式
+                const getItemBadgeClass = (type) => {
+                    if (!type) return 'bg-gray-300 text-gray-800 px-2 py-1 rounded-lg text-sm mr-2 inline-block mb-1';
+                    
+                    if (type.includes('預購')) {
+                        // 預購商品：粉紅底色、深紅字、紅邊框
+                        return 'bg-[#ECD4D4] text-red-900 border border-red-600 shadow-sm font-black px-2 py-1 rounded-lg text-sm mr-2 inline-block mb-1';
+                    }
+                    // 現貨商品：粉藍底色、黑灰字、黑灰邊框
+                    return 'bg-[#CCDBE2] text-gray-900 border border-gray-600 font-black px-2 py-1 rounded-lg text-sm mr-2 inline-block mb-1';
+                };
 
                 const fetchOrders = async () => {
                     isLoading.value = true;
@@ -339,21 +368,19 @@
                     );
                 });
 
-                // 🔥 更新：點擊頂部名字，喚起自訂的登出確認視窗
                 const handleLogout = () => {
                     if (currentUser.value === '請點擊登入') return;
-                    showLogoutConfirm.value = true; // 顯示自訂登出確認彈窗
+                    showLogoutConfirm.value = true; 
                 };
 
-                // 🔥 新增：實際執行登出清除資料的邏輯
                 const executeLogout = () => {
                     localStorage.removeItem('staffName');
                     currentUser.value = '請點擊登入';
-                    orders.value = []; // 清空背後的訂單，避免偷看
+                    orders.value = []; 
                     tempUserAccount.value = '';
                     tempPassword.value = '';
-                    showLogoutConfirm.value = false; // 關閉確認視窗
-                    showLoginModal.value = true; // 彈出登入視窗
+                    showLogoutConfirm.value = false; 
+                    showLoginModal.value = true; 
                 };
 
                 const confirmLogin = async () => {
@@ -381,10 +408,10 @@
                             showLoginModal.value = false;
                             fetchOrders(); 
                         } else {
-                            alertMessage.value = `登入失敗：\n${result.message}`; // 使用自訂警示彈窗
+                            alertMessage.value = `登入失敗：\n${result.message}`; 
                         }
                     } catch (error) {
-                        alertMessage.value = '連線至伺服器失敗，請檢查網路或管理員設定！'; // 使用自訂警示彈窗
+                        alertMessage.value = '連線至伺服器失敗，請檢查網路或管理員設定！'; 
                         console.error(error);
                     } finally {
                         isLoggingIn.value = false;
@@ -443,7 +470,7 @@
                         }
                     } catch (error) {
                         console.error('更新失敗:', error);
-                        alertMessage.value = `寫入失敗：\n${error.message}\n請重新整理頁面再試一次。`; // 使用自訂警示彈窗
+                        alertMessage.value = `寫入失敗：\n${error.message}\n請重新整理頁面再試一次。`; 
                     }
                 };
 
@@ -457,14 +484,16 @@
                     fetchError,
                     showToast,
                     showLoginModal,
-                    showLogoutConfirm, // 導出控制變數
-                    alertMessage,      // 導出控制變數
+                    showLogoutConfirm, 
+                    alertMessage,      
                     tempUserAccount,
                     tempPassword,
                     isLoggingIn,
+                    getDeliveryBadgeClass, // 導出取貨方式標籤樣式函式
+                    getItemBadgeClass,     // 導出商品屬性標籤樣式函式
                     fetchOrders,
                     handleLogout,
-                    executeLogout,     // 導出執行函式
+                    executeLogout,     
                     confirmLogin,
                     setDelivery,
                     updateOrder
