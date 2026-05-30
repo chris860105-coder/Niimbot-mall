@@ -87,7 +87,7 @@
                 Printer: getIcon('Printer'), Tag: getIcon('Tag'), Loader2: getIcon('Loader2'), CheckCircle2: getIcon('CheckCircle2'),
                 ArrowLeft: getIcon('ArrowLeft'), Wallet: getIcon('Wallet'), CreditCard: getIcon('CreditCard'), Banknote: getIcon('Banknote'),
                 Camera: getIcon('Camera'), ClipboardList: getIcon('ClipboardList'), Phone: getIcon('Phone'), ChevronRight: getIcon('ChevronRight'),
-                RefreshCcw: getIcon('RefreshCcw'), ImageIcon: getIcon('Image')
+                RefreshCcw: getIcon('RefreshCcw'), ImageIcon: getIcon('Image'), Search: getIcon('Search')
             };
 
             const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypD5ua3FilqMK8jnrHgJNoNOqBzHp_RRYkaiwTi1HygdN0HpQGw0YQ6kbcbNRFrXIr/exec"; 
@@ -102,6 +102,7 @@
                 const [activeSub2, setActiveSub2] = useState('全部'); 
                 const [expandedMain, setExpandedMain] = useState('');
                 const [expandedSub1, setExpandedSub1] = useState('');
+                const [searchTerm, setSearchTerm] = useState(''); // 新增搜尋狀態
                 const [cart, setCart] = useState([]);
                 const [isCartOpen, setIsCartOpen] = useState(false);
                 const [orderStatus, setOrderStatus] = useState(null); 
@@ -182,17 +183,28 @@
                     }
                 }, [sub2List, activeSub2]);
 
+                // 搜尋引擎與分類過濾邏輯
                 const filteredDisplay = useMemo(() => {
                     let items = rawData.filter(p => {
+                        // 如果有輸入搜尋關鍵字，全域比對名稱、大中小分類
+                        if (searchTerm.trim() !== '') {
+                            const term = searchTerm.toLowerCase();
+                            return (p.name && p.name.toLowerCase().includes(term)) || 
+                                   (p.mainCat && p.mainCat.toLowerCase().includes(term)) || 
+                                   (p.subCat1 && p.subCat1.toLowerCase().includes(term)) ||
+                                   (p.subCat2 && p.subCat2.toLowerCase().includes(term)) ||
+                                   (p.color && p.color.toLowerCase().includes(term));
+                        }
+                        // 如果沒有搜尋，走正常的分類邏輯
                         const matchMain = p.mainCat === activeMainTab; 
                         const matchSub1 = activeSub1 === '全部' || p.subCat1 === activeSub1; 
                         const matchSub2 = activeSub2 === '全部' || p.subCat2 === activeSub2;
                         return matchMain && matchSub1 && matchSub2;
                     });
                     return items.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
-                }, [rawData, activeMainTab, activeSub1, activeSub2]);
+                }, [rawData, activeMainTab, activeSub1, activeSub2, searchTerm]);
 
-                useEffect(() => { setVisibleCount(8); }, [activeMainTab, activeSub1, activeSub2, view]);
+                useEffect(() => { setVisibleCount(8); }, [activeMainTab, activeSub1, activeSub2, searchTerm, view]);
 
                 useEffect(() => {
                     if (view !== 'store') return;
@@ -211,13 +223,13 @@
                         setActiveSub1('全部');
                         setActiveSub2('全部');
                         setExpandedMain(target);
+                        setSearchTerm(''); // 跳轉時清除搜尋
                         setView('store');
                         window.scrollTo(0,0);
                     }
                 };
 
                 const addToCart = (v, q) => {
-                    // 加入 v.name，避免因為試算表填寫相同編號而導致錯誤合併
                     const cid = `${v.id}-${v.name}-${v.color}`;
                     const exist = cart.find(i => i.cartId === cid);
                     const currentQty = exist ? exist.quantity : 0;
@@ -285,15 +297,29 @@
                     };
 
                     try {
-                        await fetch(GOOGLE_SCRIPT_URL, { 
+                        // 移除 mode: 'no-cors'，讓前端可以讀取後端回傳的庫存檢查結果
+                        const response = await fetch(GOOGLE_SCRIPT_URL, { 
                             method: 'POST', 
-                            mode: 'no-cors', 
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                             body: JSON.stringify(body) 
                         });
-                        await fetchProducts();
-                        setSelectedRecord(body); setOrderStatus('success'); setCart([]); setIsCartOpen(false);
-                    } catch (e) { setOrderStatus(null); showToast("訂單送出失敗，請檢查網路"); }
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            await fetchProducts();
+                            setSelectedRecord(body); 
+                            setOrderStatus('success'); 
+                            setCart([]); 
+                            setIsCartOpen(false);
+                        } else {
+                            // 若後端檢查到庫存不足，阻擋下單並顯示提示
+                            setOrderStatus(null);
+                            showToast(result.message || "訂單送出失敗，請檢查庫存");
+                        }
+                    } catch (e) { 
+                        setOrderStatus(null); 
+                        showToast("訂單送出失敗，請檢查網路"); 
+                    }
                 };
 
                 const handleSearchHistory = async () => {
@@ -317,7 +343,6 @@
                         if (data.success) {
                             const restored = data.restoredItems.map(item => {
                                 const original = rawData.find(p => String(p.name).trim() === String(item.name).trim() && String(p.color).trim() === String(item.color).trim());
-                                // 同步修改歷史還原紀錄的 ID 判定
                                 return { ...original, name: item.name, color: item.color, quantity: item.quantity, price: item.price, cartId: original ? `${original.id}-${original.name}-${item.color}` : `restored-${Date.now()}` };
                             });
                             setCart(restored); 
@@ -397,7 +422,7 @@
                                     <button onClick={()=>{ setView('home'); setIsSidebarOpen(false); }} className="w-full text-left px-6 py-3 font-semibold text-zinc-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
                                         <icons.Home size={18} className="text-zinc-500"/> 首頁
                                     </button>
-                                    <button onClick={()=>{ if(mainCatList.length > 0) setActiveMainTab(mainCatList[0]); setActiveSub1('全部'); setActiveSub2('全部'); setView('store'); setIsSidebarOpen(false); }} className="w-full text-left px-6 py-3 font-semibold text-zinc-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
+                                    <button onClick={()=>{ if(mainCatList.length > 0) setActiveMainTab(mainCatList[0]); setActiveSub1('全部'); setActiveSub2('全部'); setSearchTerm(''); setView('store'); setIsSidebarOpen(false); }} className="w-full text-left px-6 py-3 font-semibold text-zinc-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
                                         <icons.Package size={18} className="text-zinc-500"/> 所有商品
                                     </button>
                                     <div className="my-2 border-b border-slate-100 mx-6"></div>
@@ -417,14 +442,14 @@
                                                             const isSub1Expanded = expandedSub1 === sub1;
                                                             return (
                                                                 <div key={sub1} className="flex flex-col">
-                                                                    <button onClick={() => { if (sub2s.length > 0) { setExpandedSub1(isSub1Expanded ? '' : sub1); } else { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2('全部'); setView('store'); setIsSidebarOpen(false); } }} className={`w-full flex justify-between items-center px-10 py-3 text-sm font-medium transition-colors ${activeSub1 === sub1 && view === 'store' && !isSub1Expanded ? 'bg-[#F4EEE9] text-[#5f5045]' : 'text-zinc-700 hover:bg-stone-50'}`}>
+                                                                    <button onClick={() => { if (sub2s.length > 0) { setExpandedSub1(isSub1Expanded ? '' : sub1); } else { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2('全部'); setSearchTerm(''); setView('store'); setIsSidebarOpen(false); } }} className={`w-full flex justify-between items-center px-10 py-3 text-sm font-medium transition-colors ${activeSub1 === sub1 && view === 'store' && !isSub1Expanded && !searchTerm ? 'bg-[#F4EEE9] text-[#5f5045]' : 'text-zinc-700 hover:bg-stone-50'}`}>
                                                                         <span className="truncate">{sub1}</span>
                                                                         {sub2s.length > 0 && <icons.ChevronRight size={16} className={`shrink-0 text-zinc-500 transition-transform duration-300 ${isSub1Expanded ? 'rotate-90' : ''}`} />}
                                                                     </button>
                                                                     {isSub1Expanded && sub2s.length > 0 && (
                                                                         <div className="flex flex-col bg-slate-50/50 py-1 border-y border-slate-100/50 animate-in fade-in slide-in-from-top-1">
                                                                             {sub2s.map(sub2 => (
-                                                                                <button key={sub2} onClick={() => { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2(sub2); setView('store'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-2 pl-14 pr-6 py-2.5 text-xs font-medium transition-colors ${activeSub2 === sub2 && view === 'store' ? 'text-[#5f5045] bg-[#F4EEE9]' : 'text-zinc-600 hover:text-zinc-800 hover:bg-stone-100/60'}`}>
+                                                                                <button key={sub2} onClick={() => { setActiveMainTab(main); setActiveSub1(sub1); setActiveSub2(sub2); setSearchTerm(''); setView('store'); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-2 pl-14 pr-6 py-2.5 text-xs font-medium transition-colors ${activeSub2 === sub2 && view === 'store' && !searchTerm ? 'text-[#5f5045] bg-[#F4EEE9]' : 'text-zinc-600 hover:text-zinc-800 hover:bg-stone-100/60'}`}>
                                                                                     <span className="h-1 w-1 rounded-full bg-current opacity-50"></span> 
                                                                                     <span className="truncate">{sub2}</span>
                                                                                 </button>
@@ -476,40 +501,72 @@
                         {view === 'store' && (
                             <main className="flex-1 overflow-y-auto px-4 md:px-10 pb-20 no-scrollbar animate-in fade-in">
                                 <div className="max-w-7xl mx-auto">
-                                    <div className="flex gap-6 mb-4 border-b border-slate-200 overflow-x-auto subtle-scrollbar">
-                                        {mainCatList.map(cat => (
-                                            <button key={cat} onClick={() => { setActiveMainTab(cat); setActiveSub1('全部'); setActiveSub2('全部'); }} className={`shrink-0 whitespace-nowrap pb-3 font-semibold text-lg transition-colors relative flex flex-col items-center gap-2 ${activeMainTab === cat ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-800'}`}>
-                                                {cat.includes('機') ? <icons.Printer size={24} strokeWidth={1.5}/> : <icons.Tag size={24} strokeWidth={1.5}/>}
-                                                {cat}
-                                                {activeMainTab === cat && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#A59482] rounded-t-full" />}
+                                    
+                                    {/* 搜尋引擎 UI */}
+                                    <div className="relative mb-6">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <icons.Search size={18} className="text-zinc-400" />
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="搜尋機器、貼紙或商品關鍵字..." 
+                                            className="w-full pl-11 pr-10 py-3.5 field-soft rounded-xl outline-none text-sm font-semibold text-zinc-800 transition-all placeholder:text-zinc-400 shadow-sm"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                        {searchTerm && (
+                                            <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-zinc-600 active-scale">
+                                                <icons.X size={18} />
                                             </button>
-                                        ))}
+                                        )}
                                     </div>
-                                    {sub1List.length > 1 && (
-                                        <div className="flex gap-3 overflow-x-auto subtle-scrollbar pb-3 mb-2 animate-in fade-in">
-                                            {sub1List.map(sub => (
-                                                <button key={sub} onClick={() => { setActiveSub1(sub); setActiveSub2('全部'); }} className={`shrink-0 whitespace-nowrap px-5 py-2.5 rounded-xl font-semibold text-sm transition-all active-scale ${activeSub1 === sub ? 'bg-[#A59482] text-white shadow-sm' : 'bg-white text-zinc-700 border border-stone-200 hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
-                                                    {sub}
-                                                </button>
-                                            ))}
+
+                                    {/* 若有搜尋關鍵字，顯示搜尋結果提示；若無，顯示分類選單 */}
+                                    {searchTerm.trim() !== '' ? (
+                                        <div className="mb-6 pb-2 border-b border-stone-200">
+                                            <p className="text-sm font-semibold text-zinc-600">
+                                                找到 {filteredDisplay.length} 項與「<span className="text-[#A59482]">{searchTerm}</span>」相關的商品
+                                            </p>
                                         </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex gap-6 mb-4 border-b border-slate-200 overflow-x-auto subtle-scrollbar">
+                                                {mainCatList.map(cat => (
+                                                    <button key={cat} onClick={() => { setActiveMainTab(cat); setActiveSub1('全部'); setActiveSub2('全部'); setSearchTerm(''); }} className={`shrink-0 whitespace-nowrap pb-3 font-semibold text-lg transition-colors relative flex flex-col items-center gap-2 ${activeMainTab === cat ? 'text-zinc-900' : 'text-zinc-600 hover:text-zinc-800'}`}>
+                                                        {cat.includes('機') ? <icons.Printer size={24} strokeWidth={1.5}/> : <icons.Tag size={24} strokeWidth={1.5}/>}
+                                                        {cat}
+                                                        {activeMainTab === cat && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#A59482] rounded-t-full" />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {sub1List.length > 1 && (
+                                                <div className="flex gap-3 overflow-x-auto subtle-scrollbar pb-3 mb-2 animate-in fade-in">
+                                                    {sub1List.map(sub => (
+                                                        <button key={sub} onClick={() => { setActiveSub1(sub); setActiveSub2('全部'); setSearchTerm(''); }} className={`shrink-0 whitespace-nowrap px-5 py-2.5 rounded-xl font-semibold text-sm transition-all active-scale ${activeSub1 === sub ? 'bg-[#A59482] text-white shadow-sm' : 'bg-white text-zinc-700 border border-stone-200 hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
+                                                            {sub}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {sub2List.length > 1 && (
+                                                <div className="flex gap-2 overflow-x-auto subtle-scrollbar mb-8 pb-2 animate-in slide-in-from-top-2 fade-in">
+                                                    {sub2List.map(sub2 => (
+                                                        <button key={sub2} onClick={() => { setActiveSub2(sub2); setSearchTerm(''); }} className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-xs transition-all active-scale ${activeSub2 === sub2 ? 'bg-[#F4EEE9] text-[#5f5045] border border-[#D3BBA8] shadow-sm' : 'bg-white text-zinc-700 border border-transparent hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
+                                                            {sub2}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
-                                    {sub2List.length > 1 && (
-                                        <div className="flex gap-2 overflow-x-auto subtle-scrollbar mb-8 pb-2 animate-in slide-in-from-top-2 fade-in">
-                                            {sub2List.map(sub2 => (
-                                                <button key={sub2} onClick={() => setActiveSub2(sub2)} className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-xs transition-all active-scale ${activeSub2 === sub2 ? 'bg-[#F4EEE9] text-[#5f5045] border border-[#D3BBA8] shadow-sm' : 'bg-white text-zinc-700 border border-transparent hover:bg-[#fbfaf8] hover:text-zinc-900'}`}>
-                                                    {sub2}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+
                                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 mt-6">
                                         {filteredDisplay.length > 0 ? (
                                             filteredDisplay.slice(0, visibleCount).map((p, index) => <ProductCard key={`${p.id}-${p.color}-${index}`} item={p} onAdd={addToCart} />)
                                         ) : (
                                             <div className="col-span-full py-20 text-center opacity-30 flex flex-col items-center gap-4">
                                                 <icons.Package size={64}/>
-                                                <p className="font-semibold">目前分類無商品</p>
+                                                <p className="font-semibold">{searchTerm ? '找不到相關商品' : '目前分類無商品'}</p>
                                             </div>
                                         )}
                                     </div>
@@ -549,7 +606,7 @@
                                 <div className="relative w-full max-w-md bg-[#fbfaf8] h-full panel-shadow flex flex-col animate-in slide-in-from-right duration-300 text-zinc-900">
                                     <div className="p-6 border-b border-stone-200 flex justify-between items-center font-semibold bg-white/95">
                                         <button onClick={()=>setIsCartOpen(false)} className="active-scale p-2 hover:bg-stone-100 rounded-lg transition-colors"><icons.ArrowLeft size={22}/></button>
-                                        <h2 className="text-lg font-semibold tracking-widest">購物車</h2>
+                                        <h2 className="text-lg font-semibold">購物車</h2>
                                         <div className="w-10"/>
                                     </div>
                                     <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 subtle-scrollbar">
