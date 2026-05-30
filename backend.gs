@@ -1,82 +1,114 @@
 /**
- * 精臣商城後端系統 v23.0 - 智慧模糊匹配與欄位分離防護版
- * 適用於：全訂單紀錄總表 (14 欄位 A~N 完美對應)
+ * 精臣商城後端系統 v26.0 - 嚴格防超賣機制升級版
+ * 部署網址：請替換為您的 Web App URL
  */
 
 function doGet(e) {
-  // 安全性防護：若在編輯器直接執行 doGet()，攔截 parameter 錯誤並給予友善提示
   if (!e || !e.parameter) {
-    return ContentService.createTextOutput("🎉 後端服務運作正常中！\n請使用部署後的網址進行對接，不要直接在 Google Apps Script 編輯器內點擊執行 doGet 按鈕。")
+    return ContentService.createTextOutput("🎉 後端服務運作正常中！\n請使用部署後的網址進行對接，不要直接在編輯器內點擊執行 doGet。")
                          .setMimeType(ContentService.MimeType.TEXT);
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const action = e.parameter.action;
   
-  // 處理「整筆取消並回補庫存」
   if (action === "cancelEntireOrder") {
     return handleCancelEntireOrder(e.parameter.orderId);
   }
 
-  // 處理「查詢紀錄」
   if (e.parameter.phone || e.parameter.orderId) {
     return lookupOrder(e.parameter);
   }
 
-  // 預設：產品清單
   return getProductList(ss);
 }
 
 function doPost(e) {
   try {
-    // 安全性防護：避免在編輯器直接點執行 doPost 發生錯誤
     if (!e || !e.postData || !e.postData.contents) {
-      return ContentService.createTextOutput("Error: 無法讀取 POST 資料內容，此接口僅供前端網頁傳送訂單。")
-                           .setMimeType(ContentService.MimeType.TEXT);
+      return makeJson({success: false, message: "無效的請求"});
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const data = JSON.parse(e.postData.contents);
-    const orderSheet = ss.getSheets()[0]; // 預設第一個工作表為訂單總表
+    const orderSheet = ss.getSheets()[0]; 
     
-    // 總表標題列：獨立分出 14 個欄位 (完美對應 A 到 N 欄)
+    // ==========================================
+    // 🛡️ 結帳前最後防線：嚴格檢查庫存是否足夠
+    // ==========================================
+    const sheetProduct = ss.getSheetByName("產品清單");
+    if (sheetProduct) {
+      const prodData = sheetProduct.getDataRange().getValues();
+      const headers = prodData[0];
+      const nameIdx = findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱"]);
+      const colorIdx = findHeaderIdx(headers, ["顏色", "規格"]);
+      const stockIdx = findHeaderIdx(headers, ["庫存", "數量"]);
+
+      if (nameIdx > -1 && stockIdx > -1) {
+        let stockMap = {}; 
+        // 建立當下最真實的庫存對照表
+        for (let i = 1; i < prodData.length; i++) {
+          let pName = String(prodData[i][nameIdx]).trim();
+          let pColor = String(prodData[i][colorIdx] || "預設").trim();
+          let pStock = Number(prodData[i][stockIdx]) || 0;
+          stockMap[pName + "-" + pColor] = { rowIndex: i + 1, currentStock: pStock };
+        }
+
+        let outOfStockItems = [];
+        // 核對購物車內的每一項商品
+        for (let item of data.itemsList) {
+          let key = String(item.name).trim() + "-" + String(item.color || "預設").trim();
+          let targetStock = stockMap[key] ? stockMap[key].currentStock : 0;
+          
+          if (item.quantity > targetStock) {
+            outOfStockItems.push(`${item.name} (僅剩 ${targetStock} 件)`);
+          }
+        }
+
+        // 如果有任何一項商品超賣，立刻無條件拒絕整筆訂單
+        if (outOfStockItems.length > 0) {
+          return makeJson({
+            success: false,
+            message: `抱歉！部分商品剛剛被搶空：${outOfStockItems.join('、')}。請調整數量！`
+          });
+        }
+      }
+    }
+    // ==========================================
+
     if (orderSheet.getLastRow() === 0 || orderSheet.getRange("A1").getValue() === "") {
       orderSheet.getRange("A1:N1").setValues([["訂單編號", "時間", "姓名", "電話", "Email", "產品", "規格", "數量", "小計", "總計", "支付/狀態", "地址", "備註", "取貨方式"]]);
     }
 
     data.itemsList.forEach(item => {
-      // 確保品項名稱寫入時，前端的商品狀態（[現貨] 或 [預購]）能完美呈現在「產品類型 / 產品名稱」欄位
       const displayItemName = `[${item.status || '現貨'}] ${item.name}`;
 
       orderSheet.appendRow([
         data.orderId, 
         data.timestamp, 
         data.name, 
-        "'" + data.phone,           // 加上單引號防 0 遺失
+        "'" + data.phone,           
         data.email || "", 
-        displayItemName,            // 寫入帶有現貨/預購標籤的品項名稱 (Col F)
-        item.color,                 // 規格 (Col G)
-        item.quantity,              // 數量 (Col H)
-        (item.price * item.quantity), // 小計 (Col I)
-        data.totalAmount,           // 總計 (Col J)
-        data.payment,               // 支付方式 (Col K)
-        data.address || "",         // 獨立地址 (L欄 / Col L)
-        data.memo || "",            // 獨立備註 (M欄 / Col M)
-        data.deliveryOption || ""   // 獨立出貨方式 (N欄 / Col N)
+        displayItemName,            
+        item.color,                 
+        item.quantity,              
+        (item.price * item.quantity), 
+        data.totalAmount,           
+        data.payment,               
+        data.address || "",         
+        data.memo || "",            
+        data.deliveryOption || ""   
       ]);
-      // 下單扣庫存 (傳入原始商品名稱，不要傳帶有狀態前綴的名稱)
       changeProductStock(item.name, item.color, -Math.abs(item.quantity));
     });
     
-    return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+    // 回傳成功格式給前端
+    return makeJson({success: true, message: "訂單建立成功"});
   } catch (error) {
-    return ContentService.createTextOutput("Error: " + error.toString()).setMimeType(ContentService.MimeType.TEXT);
+    return makeJson({success: false, message: error.toString()});
   }
 }
 
-/**
- * 取消訂單邏輯：將狀態改為「已取消」，金額歸零，並把數量加回庫存
- */
 function handleCancelEntireOrder(orderId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const orderSheet = ss.getSheets()[0]; 
@@ -87,7 +119,6 @@ function handleCancelEntireOrder(orderId) {
   for (let i = 1; i < orderData.length; i++) {
     if (String(orderData[i][0]).trim() === String(orderId).trim() && orderData[i][10] !== "已取消") {
       const rawItemName = String(orderData[i][5]);
-      // 去除前綴 [現貨] 或 [預購]，還原成原始品項名稱以利回補庫存
       const cleanItemName = rawItemName.replace(/^\[.*?\]\s*/, '').trim(); 
       const itemColor = String(orderData[i][6]);
       const qty = Number(orderData[i][7]);
@@ -98,22 +129,15 @@ function handleCancelEntireOrder(orderId) {
       orderSheet.getRange(i + 1, 11).setValue("已取消");
       orderSheet.getRange(i + 1, 9).setValue(0);
       
-      // 同步回補產品清單的庫存
       changeProductStock(cleanItemName, itemColor, qty);
       found = true;
     }
   }
 
   SpreadsheetApp.flush();
-
-  if (found) {
-    return makeJson({success: true, restoredItems: restoredItems});
-  } else {
-    return makeJson({success: false, message: "訂單不存在或已是取消狀態"});
-  }
+  return makeJson(found ? {success: true, restoredItems: restoredItems} : {success: false, message: "訂單不存在或已是取消狀態"});
 }
 
-// 智慧模糊比對標題索引輔助函數
 function findHeaderIdx(headers, keywords) {
   return headers.findIndex(h => keywords.some(k => String(h).trim().toLowerCase().includes(k.toLowerCase())));
 }
@@ -125,8 +149,8 @@ function changeProductStock(itemName, itemColor, delta) {
 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
-  const nameIdx = findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱", "產品名稱"]);
-  const colorIdx = findHeaderIdx(headers, ["顏色", "規格", "樣式"]);
+  const nameIdx = findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱"]);
+  const colorIdx = findHeaderIdx(headers, ["顏色", "規格"]);
   const stockIdx = findHeaderIdx(headers, ["庫存", "數量"]);
 
   if (nameIdx === -1 || stockIdx === -1) return;
@@ -149,18 +173,18 @@ function getProductList(ss) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   
-  // 使用智慧模糊比對，徹底防止因為標題多一兩個字而讀取失敗
   const idx = { 
     id: findHeaderIdx(headers, ["編號", "id", "商品編號"]), 
-    name: findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱", "產品名稱"]), 
+    name: findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱"]), 
     main: findHeaderIdx(headers, ["大分類", "主分類"]), 
-    sub1: findHeaderIdx(headers, ["二分類", "子分類"]), 
+    sub1: findHeaderIdx(headers, ["二分類", "子分類", "第二分類"]), 
+    sub2: findHeaderIdx(headers, ["三分類", "第三分類", "子子分類"]), 
     status: findHeaderIdx(headers, ["狀態", "現貨", "預購", "商品狀態"]),     
     color: findHeaderIdx(headers, ["顏色", "規格", "樣式"]), 
-    price: findHeaderIdx(headers, ["特價", "價格", "售價", "金額"]), 
-    original: findHeaderIdx(headers, ["原價", "原價價格"]), 
+    price: findHeaderIdx(headers, ["特價", "價格", "售價"]), 
+    original: findHeaderIdx(headers, ["原價"]), 
     stock: findHeaderIdx(headers, ["庫存", "數量"]), 
-    img: findHeaderIdx(headers, ["圖片連結", "圖片", "商品圖片"]) 
+    img: findHeaderIdx(headers, ["圖片連結", "圖片"]) 
   };
   
   const products = data.slice(1).filter(r => idx.name > -1 && idx.id > -1 && r[idx.name] && r[idx.id]).map(r => ({
@@ -168,6 +192,7 @@ function getProductList(ss) {
     name: String(r[idx.name]), 
     mainCat: idx.main > -1 ? String(r[idx.main]) : "", 
     subCat1: idx.sub1 > -1 ? String(r[idx.sub1]) : "", 
+    subCat2: idx.sub2 > -1 ? String(r[idx.sub2]).trim() : "", 
     status: idx.status > -1 ? String(r[idx.status] || "現貨").trim() : "現貨", 
     color: idx.color > -1 ? String(r[idx.color] || "預設") : "預設",
     price: idx.price > -1 ? (Number(r[idx.price]) || 0) : 0, 
@@ -195,7 +220,6 @@ function lookupOrder(params) {
     
     if ((targetPhone && rowPhone === targetPhone) || (targetId && oid === targetId)) {
       if (!tempMap.has(oid)) {
-        // 地址對應 L 欄 (index 11)、備註對應 M 欄 (index 12)、出貨方式對應 N 欄 (index 13)
         tempMap.set(oid, { 
           orderId: oid, 
           timestamp: data[i][1], 
