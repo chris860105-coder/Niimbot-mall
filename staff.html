@@ -25,8 +25,10 @@
         <header class="bg-[#CCDBE2] text-gray-900 p-4 sticky top-0 z-50 shadow-md border-b-2 border-gray-300">
             <div class="flex justify-between items-center mb-3">
                 <h1 class="text-2xl font-black"><i class="fas fa-boxes mr-2"></i>展場理貨系統</h1>
-                <div class="text-base bg-white/70 px-3 py-1 rounded-full flex items-center cursor-pointer font-bold border border-gray-400 shadow-sm" @click="changeUser">
+                <!-- 點擊後喚起自訂登出彈窗 -->
+                <div class="text-base bg-white/70 px-3 py-1 rounded-full flex items-center cursor-pointer font-bold border border-gray-400 shadow-sm hover:bg-red-100 transition" @click="handleLogout" title="點擊登出">
                     <i class="fas fa-user-circle mr-1 text-gray-700"></i> {{ currentUser }}
+                    <i v-if="currentUser !== '請點擊登入'" class="fas fa-sign-out-alt ml-2 text-red-500"></i>
                 </div>
             </div>
             
@@ -61,7 +63,7 @@
                     <strong class="text-xl">常見的當機原因：</strong>
                     <ol class="list-decimal list-inside mt-2 space-y-2">
                         <li>忘記換 <code class="bg-gray-200 text-red-600 px-1 rounded">SHEET_ID</code>。</li>
-                        <li>沒有建立 <code class="bg-gray-200 text-red-600 px-1 rounded">工作人員狀態</code> 分頁。</li>
+                        <li>沒有建立 <code class="bg-gray-200 text-red-600 px-1 rounded">工作人員狀態</code> 或 <code class="bg-gray-200 text-red-600 px-1 rounded">員工帳號管理</code> 分頁。</li>
                         <li>權限沒有設定為 <strong>「所有人」</strong>。</li>
                         <li>發布時忘記選擇 <strong>「建立新版本」</strong>。</li>
                     </ol>
@@ -199,35 +201,65 @@
             <span class="font-black text-base">已同步至雲端</span>
         </div>
 
-        <!-- 員工登入彈窗 -->
+        <!-- 🔥 新增：自訂系統警示彈窗 (取代 alert) -->
+        <div v-if="alertMessage" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[120] flex justify-center items-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-red-300 p-6 text-center">
+                <i class="fas fa-exclamation-circle text-5xl text-red-500 mb-4"></i>
+                <h3 class="text-xl font-black text-gray-900 mb-4">系統提示</h3>
+                <p class="text-gray-700 text-base mb-6 font-bold whitespace-pre-line">{{ alertMessage }}</p>
+                <button @click="alertMessage = ''" class="w-full py-3 bg-[#C9CBE0] text-gray-900 font-bold rounded-lg hover:bg-[#b5b8d0] shadow-md transition">
+                    我知道了
+                </button>
+            </div>
+        </div>
+
+        <!-- 🔥 新增：登出確認彈窗 (取代 confirm) -->
+        <div v-if="showLogoutConfirm" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[110] flex justify-center items-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-[#CCDBE2] p-6 text-center">
+                <i class="fas fa-sign-out-alt text-5xl text-red-500 mb-4 drop-shadow-md"></i>
+                <h3 class="text-xl font-black text-gray-900 mb-2">確定要登出嗎？</h3>
+                <p class="text-gray-600 text-sm mb-6 font-bold">登出後將需要重新輸入帳號密碼</p>
+                <div class="flex space-x-3">
+                    <button @click="showLogoutConfirm = false" class="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 transition">取消</button>
+                    <button @click="executeLogout" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 shadow-md transition">確認登出</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 員工登入彈窗 (加入帳號密碼) -->
         <div v-if="showLoginModal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[100] flex justify-center items-center p-4 backdrop-blur-sm">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border-4 border-[#CCDBE2]">
-                <!-- Header 使用粉藍色 #CCDBE2 -->
                 <div class="bg-[#CCDBE2] p-6 text-center border-b-2 border-gray-300">
-                    <i class="fas fa-user-circle text-6xl text-gray-800 mb-3 drop-shadow-md"></i>
-                    <h2 class="text-2xl font-black text-gray-900">工作人員登入</h2>
-                    <p class="text-gray-800 font-bold text-sm mt-1">無須密碼，輸入名稱即可</p>
+                    <i class="fas fa-lock text-5xl text-gray-800 mb-3 drop-shadow-md"></i>
+                    <h2 class="text-2xl font-black text-gray-900">系統登入</h2>
+                    <p class="text-gray-800 font-bold text-sm mt-1">請輸入專屬帳號密碼</p>
                 </div>
                 <div class="p-6 bg-[#EFEFF1]">
-                    <label class="block text-base font-black text-gray-900 mb-2">請輸入您的姓名 / 代號</label>
+                    <label class="block text-base font-black text-gray-900 mb-2">帳號</label>
                     <input 
-                        v-model="tempUserName" 
-                        @keyup.enter="confirmLogin" 
+                        v-model="tempUserAccount" 
                         type="text" 
-                        placeholder="例如：小明 或 A01" 
-                        class="w-full p-4 border-2 border-gray-400 rounded-lg focus:ring-4 focus:ring-[#C9CBE0] focus:border-[#C9CBE0] outline-none mb-5 text-center text-xl font-black text-gray-900 shadow-inner"
+                        placeholder="請輸入帳號" 
+                        class="w-full p-3 border-2 border-gray-400 rounded-lg focus:ring-4 focus:ring-[#C9CBE0] focus:border-[#C9CBE0] outline-none mb-4 text-center text-lg font-black text-gray-900 shadow-inner"
                     >
-                    <!-- 按鈕使用紫羅蘭色 #C9CBE0 -->
+                    
+                    <label class="block text-base font-black text-gray-900 mb-2">密碼</label>
+                    <input 
+                        v-model="tempPassword" 
+                        @keyup.enter="confirmLogin" 
+                        type="password" 
+                        placeholder="請輸入密碼" 
+                        class="w-full p-3 border-2 border-gray-400 rounded-lg focus:ring-4 focus:ring-[#C9CBE0] focus:border-[#C9CBE0] outline-none mb-6 text-center text-lg font-black text-gray-900 shadow-inner"
+                    >
+
                     <button 
                         @click="confirmLogin" 
-                        :disabled="!tempUserName.trim()"
-                        :class="tempUserName.trim() ? 'bg-[#C9CBE0] hover:bg-[#b5b8d0] text-gray-900 border-2 border-gray-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
+                        :disabled="!tempUserAccount.trim() || !tempPassword.trim() || isLoggingIn"
+                        :class="(tempUserAccount.trim() && tempPassword.trim() && !isLoggingIn) ? 'bg-[#C9CBE0] hover:bg-[#b5b8d0] text-gray-900 border-2 border-gray-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
                         class="w-full font-black py-4 rounded-lg transition shadow-md text-lg"
                     >
-                        進入系統
-                    </button>
-                    <button v-if="currentUser !== '請點擊登入'" @click="showLoginModal = false" class="w-full mt-4 text-gray-700 font-bold py-3 text-base hover:bg-gray-200 rounded-lg transition border border-gray-300">
-                        取消
+                        <i v-if="isLoggingIn" class="fas fa-spinner fa-spin mr-2"></i>
+                        {{ isLoggingIn ? '驗證中...' : '登入系統' }}
                     </button>
                 </div>
             </div>
@@ -244,12 +276,18 @@
                 const currentUser = ref('請點擊登入'); 
                 const searchQuery = ref('');
                 const orders = ref([]);
-                const isLoading = ref(true);
+                const isLoading = ref(false); 
                 const fetchError = ref(false); 
                 const showToast = ref(false); 
                 
+                // 彈窗控制變數
                 const showLoginModal = ref(false);
-                const tempUserName = ref('');
+                const showLogoutConfirm = ref(false); // 控制登出確認彈窗
+                const alertMessage = ref(''); // 取代預設的 alert
+                
+                const tempUserAccount = ref('');
+                const tempPassword = ref('');
+                const isLoggingIn = ref(false);
 
                 const fetchOrders = async () => {
                     isLoading.value = true;
@@ -285,10 +323,10 @@
                     const savedUser = localStorage.getItem('staffName');
                     if (savedUser) {
                         currentUser.value = savedUser;
+                        fetchOrders();
                     } else {
                         showLoginModal.value = true;
                     }
-                    fetchOrders();
                 });
 
                 const filteredOrders = computed(() => {
@@ -301,16 +339,55 @@
                     );
                 });
 
-                const changeUser = () => {
-                    tempUserName.value = currentUser.value === '請點擊登入' ? '' : currentUser.value;
-                    showLoginModal.value = true;
+                // 🔥 更新：點擊頂部名字，喚起自訂的登出確認視窗
+                const handleLogout = () => {
+                    if (currentUser.value === '請點擊登入') return;
+                    showLogoutConfirm.value = true; // 顯示自訂登出確認彈窗
                 };
 
-                const confirmLogin = () => {
-                    if (tempUserName.value.trim()) {
-                        currentUser.value = tempUserName.value.trim();
-                        localStorage.setItem('staffName', currentUser.value);
-                        showLoginModal.value = false; 
+                // 🔥 新增：實際執行登出清除資料的邏輯
+                const executeLogout = () => {
+                    localStorage.removeItem('staffName');
+                    currentUser.value = '請點擊登入';
+                    orders.value = []; // 清空背後的訂單，避免偷看
+                    tempUserAccount.value = '';
+                    tempPassword.value = '';
+                    showLogoutConfirm.value = false; // 關閉確認視窗
+                    showLoginModal.value = true; // 彈出登入視窗
+                };
+
+                const confirmLogin = async () => {
+                    if (!tempUserAccount.value.trim() || !tempPassword.value.trim() || isLoggingIn.value) return;
+                    
+                    isLoggingIn.value = true;
+                    
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            redirect: 'follow', 
+                            headers: { "Content-Type": "text/plain;charset=utf-8" },
+                            body: JSON.stringify({
+                                action: 'login', 
+                                account: tempUserAccount.value.trim(),
+                                password: tempPassword.value.trim()
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            currentUser.value = result.staffName;
+                            localStorage.setItem('staffName', currentUser.value);
+                            showLoginModal.value = false;
+                            fetchOrders(); 
+                        } else {
+                            alertMessage.value = `登入失敗：\n${result.message}`; // 使用自訂警示彈窗
+                        }
+                    } catch (error) {
+                        alertMessage.value = '連線至伺服器失敗，請檢查網路或管理員設定！'; // 使用自訂警示彈窗
+                        console.error(error);
+                    } finally {
+                        isLoggingIn.value = false;
                     }
                 };
 
@@ -332,6 +409,7 @@
                     order.lastModifiedTime = modifyTime;
 
                     const payload = {
+                        action: 'updateOrder',
                         id: order.id,
                         customerName: order.customerName,
                         isPaid: order.isPaid,
@@ -357,7 +435,7 @@
                         const result = await response.json();
                         
                         if (result.status === 'success') {
-                            console.log('單號', order.id, '狀態已同步至雲端');
+                            console.log('單號', order.id, '狀態已同步並紀錄');
                             showToast.value = true;
                             setTimeout(() => { showToast.value = false; }, 2000);
                         } else {
@@ -365,7 +443,7 @@
                         }
                     } catch (error) {
                         console.error('更新失敗:', error);
-                        alert(`寫入失敗：${error.message}\n請重新整理頁面再試一次。`);
+                        alertMessage.value = `寫入失敗：\n${error.message}\n請重新整理頁面再試一次。`; // 使用自訂警示彈窗
                     }
                 };
 
@@ -379,9 +457,14 @@
                     fetchError,
                     showToast,
                     showLoginModal,
-                    tempUserName,
+                    showLogoutConfirm, // 導出控制變數
+                    alertMessage,      // 導出控制變數
+                    tempUserAccount,
+                    tempPassword,
+                    isLoggingIn,
                     fetchOrders,
-                    changeUser,
+                    handleLogout,
+                    executeLogout,     // 導出執行函式
                     confirmLogin,
                     setDelivery,
                     updateOrder
