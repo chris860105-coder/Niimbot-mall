@@ -87,7 +87,7 @@
                 Printer: getIcon('Printer'), Tag: getIcon('Tag'), Loader2: getIcon('Loader2'), CheckCircle2: getIcon('CheckCircle2'),
                 ArrowLeft: getIcon('ArrowLeft'), Wallet: getIcon('Wallet'), CreditCard: getIcon('CreditCard'), Banknote: getIcon('Banknote'),
                 Camera: getIcon('Camera'), ClipboardList: getIcon('ClipboardList'), Phone: getIcon('Phone'), ChevronRight: getIcon('ChevronRight'),
-                RefreshCcw: getIcon('RefreshCcw'), ImageIcon: getIcon('Image'), Search: getIcon('Search')
+                RefreshCcw: getIcon('RefreshCcw'), ImageIcon: getIcon('Image'), Search: getIcon('Search'), ArrowUp: getIcon('ArrowUp')
             };
 
             const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypD5ua3FilqMK8jnrHgJNoNOqBzHp_RRYkaiwTi1HygdN0HpQGw0YQ6kbcbNRFrXIr/exec"; 
@@ -114,6 +114,7 @@
                 const [toast, setToast] = useState(null);
                 const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '', payment: 'Cash', deliveryOption: '現貨先拿，預購寄出' });
                 const [visibleCount, setVisibleCount] = useState(8);
+                const [showScrollTop, setShowScrollTop] = useState(false); // 控制回到最上層按鈕的顯示
                 const loaderRef = useRef(null);
 
                 const fetchProducts = async () => {
@@ -139,6 +140,38 @@
                 useEffect(() => {
                     fetchProducts().then(() => setIsLoading(false));
                 }, []);
+
+                // 滾動監聽：判斷何時顯示回到頂端按鈕
+                useEffect(() => {
+                    const handleWindowScroll = () => {
+                        if (window.scrollY > 300) {
+                            setShowScrollTop(true);
+                        } else {
+                            const storeMain = document.getElementById('store-main');
+                            if (!storeMain || storeMain.scrollTop <= 300) {
+                                setShowScrollTop(false);
+                            }
+                        }
+                    };
+                    window.addEventListener('scroll', handleWindowScroll);
+                    return () => window.removeEventListener('scroll', handleWindowScroll);
+                }, []);
+
+                const handleMainScroll = (e) => {
+                    if (e.target.scrollTop > 300) {
+                        setShowScrollTop(true);
+                    } else {
+                        if (window.scrollY <= 300) {
+                            setShowScrollTop(false);
+                        }
+                    }
+                };
+
+                const scrollToTop = () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const storeMain = document.getElementById('store-main');
+                    if (storeMain) storeMain.scrollTo({ top: 0, behavior: 'smooth' });
+                };
 
                 const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 3500); };
 
@@ -410,7 +443,7 @@
                 if (isLoading) return <div className="h-screen flex items-center justify-center bg-white"><icons.Loader2 className="animate-spin text-indigo-600" size={48}/></div>;
 
                 return (
-                    <div className="min-h-screen flex flex-col font-sans relative overflow-x-hidden">
+                    <div className="min-h-screen flex flex-col font-sans relative">
                         <div className={`fixed inset-0 z-[500] transition-all duration-500 ${isSidebarOpen ? 'visible' : 'invisible'}`}>
                             <div className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity ${isSidebarOpen?'opacity-100':'opacity-0'}`} onClick={()=>setIsSidebarOpen(false)} />
                             <div className={`absolute inset-y-0 left-0 w-[85%] max-w-[340px] bg-white panel-shadow flex flex-col transition-transform duration-500 ${isSidebarOpen?'translate-x-0':'-translate-x-full'}`}>
@@ -469,16 +502,18 @@
                             </div>
                         </div>
 
-                        <header className="px-5 py-5 md:px-10 md:py-7 max-w-7xl mx-auto w-full flex justify-between items-center z-50">
-                            <div className="flex items-center gap-4">
-                                <button onClick={()=>setIsSidebarOpen(true)} className="p-2.5 bg-white/90 shadow-sm rounded-lg text-zinc-700 active-scale border border-stone-200 hover:border-zinc-300 transition-colors"><icons.Menu size={22}/></button>
-                                <img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-5 md:h-6" />
-                            </div>
-                            <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white/90 shadow-sm rounded-lg active-scale border border-stone-200 hover:border-zinc-300 transition-colors">
-                                <icons.ShoppingCart size={21} className="text-zinc-700"/>
-                                {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-[#A59482] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-semibold">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
-                            </button>
-                        </header>
+                        <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md shadow-sm border-b border-stone-100">
+                            <header className="px-5 py-4 md:px-10 md:py-4 max-w-7xl mx-auto w-full flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <button onClick={()=>setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm rounded-lg text-zinc-700 active-scale border border-stone-200 hover:border-zinc-300 transition-colors"><icons.Menu size={22}/></button>
+                                    <img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-5 md:h-6" />
+                                </div>
+                                <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white shadow-sm rounded-lg active-scale border border-stone-200 hover:border-zinc-300 transition-colors">
+                                    <icons.ShoppingCart size={21} className="text-zinc-700"/>
+                                    {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-[#A59482] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-semibold">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
+                                </button>
+                            </header>
+                        </div>
 
                         {view === 'home' && (
                             <main className="flex-1 max-w-7xl mx-auto px-6 py-2 pb-24 w-full animate-in fade-in slide-in-from-bottom-4">
@@ -499,7 +534,7 @@
                         )}
 
                         {view === 'store' && (
-                            <main className="flex-1 overflow-y-auto px-4 md:px-10 pb-20 no-scrollbar animate-in fade-in">
+                            <main id="store-main" onScroll={handleMainScroll} className="flex-1 overflow-y-auto px-4 md:px-10 pb-20 no-scrollbar animate-in fade-in">
                                 <div className="max-w-7xl mx-auto">
                                     
                                     {/* 搜尋引擎 UI */}
@@ -702,6 +737,15 @@
                             </div>
                         )}
                         {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[1100] bg-zinc-900 text-white px-8 py-3.5 rounded-xl font-semibold animate-in slide-in-from-bottom-5 text-xs shadow-xl whitespace-nowrap">{toast}</div>}
+
+                        {/* 回到頂部按鈕 */}
+                        <button 
+                            onClick={scrollToTop}
+                            className={`fixed bottom-6 left-6 md:bottom-10 md:left-10 z-[450] p-3 md:p-3.5 bg-white/95 backdrop-blur-md shadow-lg shadow-stone-200/50 rounded-full text-zinc-600 border border-stone-200 hover:text-[#A59482] hover:border-[#D3BBA8] active-scale transition-all duration-500 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+                            title="回到最頂端"
+                        >
+                            <icons.ArrowUp size={22} strokeWidth={2.5} />
+                        </button>
                     </div>
                 );
             };
