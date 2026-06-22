@@ -102,7 +102,7 @@
                 const [activeSub2, setActiveSub2] = useState('全部'); 
                 const [expandedMain, setExpandedMain] = useState('');
                 const [expandedSub1, setExpandedSub1] = useState('');
-                const [searchTerm, setSearchTerm] = useState(''); // 新增搜尋狀態
+                const [searchTerm, setSearchTerm] = useState('');
                 const [cart, setCart] = useState([]);
                 const [isCartOpen, setIsCartOpen] = useState(false);
                 const [orderStatus, setOrderStatus] = useState(null); 
@@ -114,7 +114,8 @@
                 const [toast, setToast] = useState(null);
                 const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '', payment: 'Cash', deliveryOption: '現貨先拿，預購寄出' });
                 const [visibleCount, setVisibleCount] = useState(8);
-                const [showScrollTop, setShowScrollTop] = useState(false); // 控制回到最上層按鈕的顯示
+                const [showScrollTop, setShowScrollTop] = useState(false);
+                const [zoomedImage, setZoomedImage] = useState(null); // 新增：圖片放大預覽狀態
                 const loaderRef = useRef(null);
 
                 const fetchProducts = async () => {
@@ -141,7 +142,6 @@
                     fetchProducts().then(() => setIsLoading(false));
                 }, []);
 
-                // 滾動監聽：判斷何時顯示回到頂端按鈕
                 useEffect(() => {
                     const handleWindowScroll = () => {
                         if (window.scrollY > 300) {
@@ -216,10 +216,8 @@
                     }
                 }, [sub2List, activeSub2]);
 
-                // 搜尋引擎與分類過濾邏輯
                 const filteredDisplay = useMemo(() => {
                     let items = rawData.filter(p => {
-                        // 如果有輸入搜尋關鍵字，全域比對名稱、大中小分類
                         if (searchTerm.trim() !== '') {
                             const term = searchTerm.toLowerCase();
                             return (p.name && p.name.toLowerCase().includes(term)) || 
@@ -228,7 +226,6 @@
                                    (p.subCat2 && p.subCat2.toLowerCase().includes(term)) ||
                                    (p.color && p.color.toLowerCase().includes(term));
                         }
-                        // 如果沒有搜尋，走正常的分類邏輯
                         const matchMain = p.mainCat === activeMainTab; 
                         const matchSub1 = activeSub1 === '全部' || p.subCat1 === activeSub1; 
                         const matchSub2 = activeSub2 === '全部' || p.subCat2 === activeSub2;
@@ -256,7 +253,7 @@
                         setActiveSub1('全部');
                         setActiveSub2('全部');
                         setExpandedMain(target);
-                        setSearchTerm(''); // 跳轉時清除搜尋
+                        setSearchTerm(''); 
                         setView('store');
                         window.scrollTo(0,0);
                     }
@@ -330,7 +327,6 @@
                     };
 
                     try {
-                        // 移除 mode: 'no-cors'，讓前端可以讀取後端回傳的庫存檢查結果
                         const response = await fetch(GOOGLE_SCRIPT_URL, { 
                             method: 'POST', 
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
@@ -345,7 +341,6 @@
                             setCart([]); 
                             setIsCartOpen(false);
                         } else {
-                            // 若後端檢查到庫存不足，阻擋下單並顯示提示
                             setOrderStatus(null);
                             showToast(result.message || "訂單送出失敗，請檢查庫存");
                         }
@@ -597,7 +592,7 @@
 
                                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8 mt-6">
                                         {filteredDisplay.length > 0 ? (
-                                            filteredDisplay.slice(0, visibleCount).map((p, index) => <ProductCard key={`${p.id}-${p.color}-${index}`} item={p} onAdd={addToCart} />)
+                                            filteredDisplay.slice(0, visibleCount).map((p, index) => <ProductCard key={`${p.id}-${p.color}-${index}`} item={p} onAdd={addToCart} onImageClick={() => p.img && setZoomedImage(p.img)} />)
                                         ) : (
                                             <div className="col-span-full py-20 text-center opacity-30 flex flex-col items-center gap-4">
                                                 <icons.Package size={64}/>
@@ -746,11 +741,31 @@
                         >
                             <icons.ArrowUp size={22} strokeWidth={2.5} />
                         </button>
+
+                        {/* 新增：圖片放大燈箱 (Lightbox) */}
+                        {zoomedImage && (
+                            <div 
+                                className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" 
+                                onClick={() => setZoomedImage(null)}
+                            >
+                                <button 
+                                    className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors active-scale" 
+                                    onClick={() => setZoomedImage(null)}
+                                >
+                                    <icons.X size={24} />
+                                </button>
+                                <img 
+                                    src={zoomedImage} 
+                                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" 
+                                    onClick={e => e.stopPropagation()} 
+                                />
+                            </div>
+                        )}
                     </div>
                 );
             };
 
-            const ProductCard = ({ item, onAdd }) => {
+            const ProductCard = ({ item, onAdd, onImageClick }) => {
                 const [qty, setQty] = useState(1); 
                 const isOutOfStock = item.stock <= 0;
                 const maxQty = Math.min(10, Math.max(1, item.stock));
@@ -759,7 +774,11 @@
 
                 return (
                     <div className="bg-white/95 rounded-2xl border border-stone-200 overflow-hidden group flex flex-col h-full shadow-sm hover:shadow-md transition-all duration-300">
-                        <div className="aspect-square bg-stone-50 relative overflow-hidden flex items-center justify-center border-b border-stone-100">
+                        {/* 圖片區塊加入 cursor-pointer 與 onClick 事件 */}
+                        <div 
+                            className="aspect-square bg-stone-50 relative overflow-hidden flex items-center justify-center border-b border-stone-100 cursor-pointer"
+                            onClick={() => onImageClick && onImageClick()}
+                        >
                             {item.img ? <img src={item.img} className={`w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale opacity-70' : ''}`}/> : <icons.ImageIcon size={32} className="text-slate-200"/>}
                             {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-[2px] z-20"><span className="bg-zinc-900 text-white px-3 py-1.5 rounded-lg font-semibold text-[10px] md:text-xs uppercase shadow-sm">售完 OUT OF STOCK</span></div>}
                         </div>
