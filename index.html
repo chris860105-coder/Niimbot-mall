@@ -102,7 +102,7 @@
                 const [activeSub2, setActiveSub2] = useState('全部'); 
                 const [expandedMain, setExpandedMain] = useState('');
                 const [expandedSub1, setExpandedSub1] = useState('');
-                const [searchTerm, setSearchTerm] = useState('');
+                const [searchTerm, setSearchTerm] = useState(''); 
                 const [cart, setCart] = useState([]);
                 const [isCartOpen, setIsCartOpen] = useState(false);
                 const [orderStatus, setOrderStatus] = useState(null); 
@@ -115,7 +115,7 @@
                 const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '', payment: 'Cash', deliveryOption: '現貨先拿，預購寄出' });
                 const [visibleCount, setVisibleCount] = useState(8);
                 const [showScrollTop, setShowScrollTop] = useState(false);
-                const [zoomedImage, setZoomedImage] = useState(null); // 新增：圖片放大預覽狀態
+                const [zoomedImage, setZoomedImage] = useState(null);
                 const loaderRef = useRef(null);
 
                 const fetchProducts = async () => {
@@ -503,10 +503,16 @@
                                     <button onClick={()=>setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm rounded-lg text-zinc-700 active-scale border border-stone-200 hover:border-zinc-300 transition-colors"><icons.Menu size={22}/></button>
                                     <img src="https://d3jnmi1tfjgtti.cloudfront.net/file/199613321/sizeoriginal_s*px$_s3s1s1sds3s8s8s2_%E9%80%99%E5%80%8B%E5%8F%AF%E4%BB%A51.png" className="h-5 md:h-6" />
                                 </div>
-                                <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white shadow-sm rounded-lg active-scale border border-stone-200 hover:border-zinc-300 transition-colors">
-                                    <icons.ShoppingCart size={21} className="text-zinc-700"/>
-                                    {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-[#A59482] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-semibold">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
-                                </button>
+                                {/* 新增按鈕與購物車的容器 */}
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    <a href="https://chris860105-coder.github.io/niimbot-finder/" target="_blank" className="bg-[#A99479] text-white font-bold rounded-full shadow-md flex items-center justify-center active-scale transition-all h-[38px] md:h-[42px] px-3.5 md:px-5 text-[13px] md:text-[14px] whitespace-nowrap">
+                                        第一次購買？幫我選
+                                    </a>
+                                    <button onClick={()=>setIsCartOpen(true)} className="relative p-3 bg-white shadow-sm rounded-lg active-scale border border-stone-200 hover:border-zinc-300 transition-colors">
+                                        <icons.ShoppingCart size={21} className="text-zinc-700"/>
+                                        {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-[#A59482] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-semibold">{cart.reduce((s,i)=>s+i.quantity,0)}</span>}
+                                    </button>
+                                </div>
                             </header>
                         </div>
 
@@ -636,7 +642,7 @@
                                 <div className="relative w-full max-w-md bg-[#fbfaf8] h-full panel-shadow flex flex-col animate-in slide-in-from-right duration-300 text-zinc-900">
                                     <div className="p-6 border-b border-stone-200 flex justify-between items-center font-semibold bg-white/95">
                                         <button onClick={()=>setIsCartOpen(false)} className="active-scale p-2 hover:bg-stone-100 rounded-lg transition-colors"><icons.ArrowLeft size={22}/></button>
-                                        <h2 className="text-lg font-semibold">購物車</h2>
+                                        <h2 className="text-lg font-semibold tracking-widest">購物車</h2>
                                         <div className="w-10"/>
                                     </div>
                                     <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 subtle-scrollbar">
@@ -742,7 +748,7 @@
                             <icons.ArrowUp size={22} strokeWidth={2.5} />
                         </button>
 
-                        {/* 新增：圖片放大燈箱 (Lightbox) */}
+                        {/* 圖片放大燈箱 (Lightbox) */}
                         {zoomedImage && (
                             <div 
                                 className="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" 
@@ -774,7 +780,6 @@
 
                 return (
                     <div className="bg-white/95 rounded-2xl border border-stone-200 overflow-hidden group flex flex-col h-full shadow-sm hover:shadow-md transition-all duration-300">
-                        {/* 圖片區塊加入 cursor-pointer 與 onClick 事件 */}
                         <div 
                             className="aspect-square bg-stone-50 relative overflow-hidden flex items-center justify-center border-b border-stone-100 cursor-pointer"
                             onClick={() => onImageClick && onImageClick()}
