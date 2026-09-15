@@ -1,5 +1,5 @@
 /**
- * 精臣商城後端系統 v28.0 - 效能、併發防護與安全性極致優化版 (STEP 1)
+ * 精臣商城後端系統 v28.0 - 效能、併發防護與安全性極致優化版 (STEP 1.5)
  * 部署網址：請替換為您的 Web App URL
  */
 
@@ -24,7 +24,43 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  // 1. 啟用 LockService 防止 Race Condition (等待時間上限 10 秒)
+  // === 鎖外作業：無共享狀態的資料驗證提早做，不佔用 Lock 時間 ===
+  if (!e || !e.postData || !e.postData.contents) {
+    return makeJson({success: false, message: "無效的請求"});
+  }
+
+  let data;
+  try {
+    data = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return makeJson({success: false, message: "資料格式錯誤"});
+  }
+
+  if (!Array.isArray(data.itemsList) || data.itemsList.length === 0) {
+    return makeJson({success: false, message: "商品數量格式錯誤"});
+  }
+
+  for (let item of data.itemsList) {
+    const qty = Number(item.quantity);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+      return makeJson({success: false, message: "商品數量格式異常"});
+    }
+    item.quantity = qty; 
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const orderSheet = ss.getSheetByName("全訂單紀錄總表");
+  const sheetProduct = ss.getSheetByName("產品清單");
+
+  if (!orderSheet) {
+    return makeJson({success: false, message: "找不到全訂單紀錄總表"});
+  }
+
+  if (!sheetProduct) {
+    return makeJson({success: false, message: "找不到產品清單"});
+  }
+
+  // === 進入危險區 (Critical Section) ===
   const lock = LockService.getScriptLock();
   
   try {
@@ -32,34 +68,12 @@ function doPost(e) {
       return makeJson({success: false, message: "系統繁忙，許多人正在結帳，請稍後再試！"});
     }
 
-    if (!e || !e.postData || !e.postData.contents) {
-      return makeJson({success: false, message: "無效的請求"});
+    // 初始化標題 (移入 Critical Section)
+    if (orderSheet.getLastRow() === 0 || orderSheet.getRange("A1").getValue() === "") {
+      orderSheet.getRange("A1:N1").setValues([["訂單編號", "時間", "姓名", "電話", "Email", "產品", "規格", "數量", "小計", "總計", "支付/狀態", "地址", "備註", "取貨方式"]]);
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const data = JSON.parse(e.postData.contents);
-    const orderSheet = ss.getSheets()[0]; 
-    const sheetProduct = ss.getSheetByName("產品清單");
-
-    if (!sheetProduct) {
-      return makeJson({success: false, message: "找不到產品清單"});
-    }
-
-    if (!Array.isArray(data.itemsList) || data.itemsList.length === 0) {
-      return makeJson({success: false, message: "商品數量格式錯誤"});
-    }
-
-    for (let item of data.itemsList) {
-      const qty = Number(item.quantity);
-      if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
-        return makeJson({success: false, message: "商品數量格式錯誤"});
-      }
-      item.quantity = qty; 
-    }
-
-    // ==========================================
-    // 🛡️ 結帳前最後防線：嚴格檢查庫存是否足夠 (統一讀取一次)
-    // ==========================================
+    // 1. 讀取庫存 (In-Memory)
     const prodData = sheetProduct.getDataRange().getValues();
     const headers = prodData[0];
     const nameIdx = findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱"]);
@@ -71,90 +85,52 @@ function doPost(e) {
     }
 
     let stockMap = {}; 
-    // 建立當下最真實的庫存對照表 (In-Memory)
     for (let i = 1; i < prodData.length; i++) {
       let pName = String(prodData[i][nameIdx]).trim();
       let pColor = String(prodData[i][colorIdx] || "預設").trim();
       let pStock = Number(prodData[i][stockIdx]) || 0;
-      
-      // 記錄真實列號 (Row index 1-based)，用於稍後精準單獨寫回
       stockMap[pName + "-" + pColor] = { rowIndex: i + 1, currentStock: pStock };
     }
 
-    // ==========================================
-    // 🔍 修正同商品重複項目的防超賣漏洞 (Requested Qty Map)
-    // ==========================================
+    // 2. 彙整需求數量 (防同品項超賣)
     let requestedQtyMap = {};
     for (let item of data.itemsList) {
       let key = String(item.name).trim() + "-" + String(item.color || "預設").trim();
-      if (!requestedQtyMap[key]) {
-        requestedQtyMap[key] = 0;
-      }
+      if (!requestedQtyMap[key]) requestedQtyMap[key] = 0;
       requestedQtyMap[key] += item.quantity;
     }
 
+    // 3. 庫存核對
     let outOfStockItems = [];
-    // 核對聚合後的購物車數量
     for (let key in requestedQtyMap) {
       let reqQty = requestedQtyMap[key];
       let targetStock = stockMap[key] ? stockMap[key].currentStock : 0;
-      
       if (reqQty > targetStock) {
-        // 為了友善提示，把 key 切割回原本名稱
         let itemName = key.split("-")[0];
         outOfStockItems.push(`${itemName} (需求: ${reqQty}, 僅剩: ${targetStock})`);
       }
     }
 
-    // 如果有任何一項商品超賣，立刻無條件拒絕整筆訂單
     if (outOfStockItems.length > 0) {
-      return makeJson({
-        success: false,
-        message: `抱歉！部分商品剛剛被搶空：${outOfStockItems.join('、')}。請調整數量！`
-      });
+      return makeJson({ success: false, message: `抱歉！部分商品剛剛被搶空：${outOfStockItems.join('、')}。請調整數量！` });
     }
 
-    // ==========================================
-    // 📝 準備批次寫入訂單與「單獨」更新庫存
-    // ==========================================
-    
-    // 初始化標題
-    if (orderSheet.getLastRow() === 0 || orderSheet.getRange("A1").getValue() === "") {
-      orderSheet.getRange("A1:N1").setValues([["訂單編號", "時間", "姓名", "電話", "Email", "產品", "規格", "數量", "小計", "總計", "支付/狀態", "地址", "備註", "取貨方式"]]);
-    }
-
+    // 4. 準備訂單批次寫入
     let orderRowsToInsert = [];
-
     data.itemsList.forEach(item => {
       const displayItemName = `[${item.status || '現貨'}] ${item.name}`;
-
-      // 準備訂單資料 row
       orderRowsToInsert.push([
-        data.orderId, 
-        data.timestamp, 
-        data.name, 
-        "'" + data.phone,           
-        data.email || "", 
-        displayItemName,            
-        item.color,                 
-        item.quantity,              
-        (item.price * item.quantity), 
-        data.totalAmount,           
-        data.payment,               
-        data.address || "",         
-        data.memo || "",            
-        data.deliveryOption || ""   
+        data.orderId, data.timestamp, data.name, "'" + data.phone, data.email || "", 
+        displayItemName, item.color, item.quantity, (item.price * item.quantity), 
+        data.totalAmount, data.payment, data.address || "", data.memo || "", data.deliveryOption || ""   
       ]);
     });
 
-    // 🚀 執行批次寫入 (Batch Write) 訂單
     if (orderRowsToInsert.length > 0) {
-      // 一次性寫入所有訂單項目
       orderSheet.getRange(orderSheet.getLastRow() + 1, 1, orderRowsToInsert.length, orderRowsToInsert[0].length).setValues(orderRowsToInsert);
     }
     
-    // 🚀 執行精準寫入 (Selective Write) 庫存
-    // 避免覆寫整欄，只針對本次交易有牽涉到的商品單獨 setValue
+    // 5. 單獨寫回有更動的庫存
     for (let key in requestedQtyMap) {
       if (stockMap[key]) {
         let newStock = stockMap[key].currentStock - requestedQtyMap[key];
@@ -162,21 +138,45 @@ function doPost(e) {
       }
     }
     
-    SpreadsheetApp.flush(); // 強制應用所有更改
+    // 確保持久化寫入，避免下一個取得 Lock 的請求讀到舊資料
+    SpreadsheetApp.flush();
     return makeJson({success: true, message: "訂單建立成功"});
 
   } catch (error) {
     return makeJson({success: false, message: "系統發生錯誤：" + error.toString()});
   } finally {
-    // 安全釋放 Lock
     if (lock.hasLock()) {
       lock.releaseLock();
     }
   }
 }
 
-// ⚠️ 退貨邏輯同步套用「精準回補庫存」
 function handleCancelEntireOrder(orderId) {
+  if (!orderId) return makeJson({success: false, message: "無效的訂單編號"});
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const orderSheet = ss.getSheetByName("全訂單紀錄總表");
+  const sheetProduct = ss.getSheetByName("產品清單");
+  
+  if (!orderSheet) return makeJson({success: false, message: "找不到全訂單紀錄總表"});
+  if (!sheetProduct) return makeJson({success: false, message: "找不到產品清單"});
+
+  // === 鎖外作業：使用 TextFinder 高速尋找目標列 ===
+  const lastRow = orderSheet.getLastRow();
+  if (lastRow <= 1) return makeJson({success: false, message: "無訂單紀錄"});
+
+  // 僅搜尋 A 欄 (訂單編號欄)，完全精準比對
+  const searchRange = orderSheet.getRange(2, 1, lastRow - 1, 1);
+  const foundCells = searchRange.createTextFinder(String(orderId).trim()).matchEntireCell(true).findAll();
+
+  if (foundCells.length === 0) {
+    return makeJson({success: false, message: "訂單不存在"});
+  }
+
+  // 取出符合條件的所有行號，並排序
+  const rowNumbers = foundCells.map(c => c.getRow()).sort((a, b) => a - b);
+
+  // === 進入危險區 ===
   const lock = LockService.getScriptLock();
   
   try {
@@ -184,17 +184,89 @@ function handleCancelEntireOrder(orderId) {
       return makeJson({success: false, message: "系統繁忙，請稍後再試！"});
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const orderSheet = ss.getSheets()[0]; 
-    const sheetProduct = ss.getSheetByName("產品清單");
-    
-    if (!sheetProduct) return makeJson({success: false, message: "找不到產品清單"});
-
-    const orderData = orderSheet.getDataRange().getValues();
     const restoredItems = [];
+    let restockMap = {};
     let found = false;
 
-    // 準備讀取產品庫存
+    // 判斷是否為連續列
+    let isContinuous = true;
+    for (let i = 1; i < rowNumbers.length; i++) {
+      if (rowNumbers[i] !== rowNumbers[i - 1] + 1) {
+        isContinuous = false;
+        break;
+      }
+    }
+
+    if (isContinuous && rowNumbers.length > 0) {
+      // === 連續列優化處理 ===
+      const startRow = rowNumbers[0];
+      const rowCount = rowNumbers.length;
+      
+      // 1次 Read
+      const rowDataArray = orderSheet.getRange(startRow, 1, rowCount, 14).getValues();
+      const updateDataArray = [];
+      let updatesNeeded = false;
+
+      for (let i = 0; i < rowDataArray.length; i++) {
+        const rowData = rowDataArray[i];
+        if (String(rowData[0]).trim() === String(orderId).trim() && rowData[10] !== "已取消") {
+          const rawItemName = String(rowData[5]);
+          const cleanItemName = rawItemName.replace(/^\[.*?\]\s*/, '').trim(); 
+          const itemColor = String(rowData[6]);
+          const qty = Number(rowData[7]);
+          const price = Number(rowData[8]) / (qty || 1);
+
+          restoredItems.push({ name: cleanItemName, color: itemColor, quantity: qty, price: price });
+          
+          let key = cleanItemName + "-" + (itemColor || "預設").trim();
+          if (!restockMap[key]) restockMap[key] = 0;
+          restockMap[key] += qty;
+          
+          // I(小計)=0, J(總計)=維持, K(狀態)=已取消
+          updateDataArray.push([0, rowData[9], "已取消"]);
+          found = true;
+          updatesNeeded = true;
+        } else {
+          updateDataArray.push([rowData[8], rowData[9], rowData[10]]); // 保持原樣
+        }
+      }
+
+      if (updatesNeeded) {
+        // 1次 Write
+        orderSheet.getRange(startRow, 9, rowCount, 3).setValues(updateDataArray);
+      }
+
+    } else {
+      // === 非連續列 Fallback 處理 ===
+      for (let r of rowNumbers) {
+        const rowData = orderSheet.getRange(r, 1, 1, 14).getValues()[0];
+        
+        if (String(rowData[0]).trim() === String(orderId).trim() && rowData[10] !== "已取消") {
+          const rawItemName = String(rowData[5]);
+          const cleanItemName = rawItemName.replace(/^\[.*?\]\s*/, '').trim(); 
+          const itemColor = String(rowData[6]);
+          const qty = Number(rowData[7]);
+          const price = Number(rowData[8]) / (qty || 1);
+
+          restoredItems.push({ name: cleanItemName, color: itemColor, quantity: qty, price: price });
+
+          // 1次 Write (單列)
+          orderSheet.getRange(r, 9, 1, 3).setValues([[0, rowData[9], "已取消"]]);
+          
+          let key = cleanItemName + "-" + (itemColor || "預設").trim();
+          if (!restockMap[key]) restockMap[key] = 0;
+          restockMap[key] += qty;
+
+          found = true;
+        }
+      }
+    }
+
+    if (!found) {
+      return makeJson({success: false, message: "訂單已是取消狀態或不存在"});
+    }
+
+    // 2. 準備讀取產品庫存以進行回補
     const prodData = sheetProduct.getDataRange().getValues();
     const headers = prodData[0];
     const nameIdx = findHeaderIdx(headers, ["品項名稱", "品項", "名稱", "商品名稱"]);
@@ -209,35 +281,8 @@ function handleCancelEntireOrder(orderId) {
       let pColor = String(prodData[j][colorIdx] || "預設").trim();
       stockMap[pName + "-" + pColor] = { rowIndex: j + 1, currentStock: Number(prodData[j][stockIdx]) || 0 };
     }
-    
-    // 建立要回補的數量對照表 (防重複商品疊加寫入衝突)
-    let restockMap = {};
 
-    // 處理訂單狀態與累計要退回的數量
-    for (let i = 1; i < orderData.length; i++) {
-      if (String(orderData[i][0]).trim() === String(orderId).trim() && orderData[i][10] !== "已取消") {
-        const rawItemName = String(orderData[i][5]);
-        const cleanItemName = rawItemName.replace(/^\[.*?\]\s*/, '').trim(); 
-        const itemColor = String(orderData[i][6]);
-        const qty = Number(orderData[i][7]);
-        const price = Number(orderData[i][8]) / (qty || 1);
-
-        restoredItems.push({ name: cleanItemName, color: itemColor, quantity: qty, price: price });
-
-        // 取消狀態寫入 (因為退貨的 row 可能不連續，保留單筆 setValue，但這發生機率低且筆數少，影響不大)
-        orderSheet.getRange(i + 1, 11).setValue("已取消");
-        orderSheet.getRange(i + 1, 9).setValue(0);
-        
-        // 記憶體中累加要回補的庫存
-        let key = cleanItemName + "-" + (itemColor || "預設").trim();
-        if (!restockMap[key]) restockMap[key] = 0;
-        restockMap[key] += qty;
-
-        found = true;
-      }
-    }
-
-    // 精準寫回退貨後的庫存
+    // 3. 精準寫回退貨後的庫存
     for (let key in restockMap) {
       if (stockMap[key]) {
         let restoredStock = stockMap[key].currentStock + restockMap[key];
@@ -245,8 +290,9 @@ function handleCancelEntireOrder(orderId) {
       }
     }
 
+    // 確保持久化寫入
     SpreadsheetApp.flush();
-    return makeJson(found ? {success: true, restoredItems: restoredItems} : {success: false, message: "訂單不存在或已是取消狀態"});
+    return makeJson({success: true, restoredItems: restoredItems});
 
   } catch (error) {
     return makeJson({success: false, message: "系統發生錯誤：" + error.toString()});
