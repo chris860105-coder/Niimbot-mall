@@ -1,5 +1,5 @@
 /**
- * 精臣商城後端系統 v27.0 - 效能與併發優化版 (STEP 1)
+ * 精臣商城後端系統 v28.0 - 效能、併發防護與安全性極致優化版 (STEP 1)
  * 部署網址：請替換為您的 Web App URL
  */
 
@@ -45,6 +45,18 @@ function doPost(e) {
       return makeJson({success: false, message: "找不到產品清單"});
     }
 
+    if (!Array.isArray(data.itemsList) || data.itemsList.length === 0) {
+      return makeJson({success: false, message: "商品數量格式錯誤"});
+    }
+
+    for (let item of data.itemsList) {
+      const qty = Number(item.quantity);
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+        return makeJson({success: false, message: "商品數量格式錯誤"});
+      }
+      item.quantity = qty; 
+    }
+
     // ==========================================
     // 🛡️ 結帳前最後防線：嚴格檢查庫存是否足夠 (統一讀取一次)
     // ==========================================
@@ -59,27 +71,38 @@ function doPost(e) {
     }
 
     let stockMap = {}; 
-    // 準備一個要批次寫回的庫存欄位 2D 陣列 (排除標題列)
-    let newStockColumn = [];
-
     // 建立當下最真實的庫存對照表 (In-Memory)
     for (let i = 1; i < prodData.length; i++) {
       let pName = String(prodData[i][nameIdx]).trim();
       let pColor = String(prodData[i][colorIdx] || "預設").trim();
       let pStock = Number(prodData[i][stockIdx]) || 0;
       
-      stockMap[pName + "-" + pColor] = { rowIndex: i, currentStock: pStock };
-      newStockColumn.push([pStock]); // 初始化新庫存陣列
+      // 記錄真實列號 (Row index 1-based)，用於稍後精準單獨寫回
+      stockMap[pName + "-" + pColor] = { rowIndex: i + 1, currentStock: pStock };
+    }
+
+    // ==========================================
+    // 🔍 修正同商品重複項目的防超賣漏洞 (Requested Qty Map)
+    // ==========================================
+    let requestedQtyMap = {};
+    for (let item of data.itemsList) {
+      let key = String(item.name).trim() + "-" + String(item.color || "預設").trim();
+      if (!requestedQtyMap[key]) {
+        requestedQtyMap[key] = 0;
+      }
+      requestedQtyMap[key] += item.quantity;
     }
 
     let outOfStockItems = [];
-    // 核對購物車內的每一項商品
-    for (let item of data.itemsList) {
-      let key = String(item.name).trim() + "-" + String(item.color || "預設").trim();
+    // 核對聚合後的購物車數量
+    for (let key in requestedQtyMap) {
+      let reqQty = requestedQtyMap[key];
       let targetStock = stockMap[key] ? stockMap[key].currentStock : 0;
       
-      if (item.quantity > targetStock) {
-        outOfStockItems.push(`${item.name} (僅剩 ${targetStock} 件)`);
+      if (reqQty > targetStock) {
+        // 為了友善提示，把 key 切割回原本名稱
+        let itemName = key.split("-")[0];
+        outOfStockItems.push(`${itemName} (需求: ${reqQty}, 僅剩: ${targetStock})`);
       }
     }
 
@@ -92,7 +115,7 @@ function doPost(e) {
     }
 
     // ==========================================
-    // 📝 準備批次寫入訂單與更新庫存陣列
+    // 📝 準備批次寫入訂單與「單獨」更新庫存
     // ==========================================
     
     // 初始化標題
@@ -122,24 +145,21 @@ function doPost(e) {
         data.memo || "",            
         data.deliveryOption || ""   
       ]);
-
-      // 在記憶體中計算扣除後的庫存
-      let key = String(item.name).trim() + "-" + String(item.color || "預設").trim();
-      if (stockMap[key]) {
-        stockMap[key].currentStock -= Math.abs(item.quantity);
-        newStockColumn[stockMap[key].rowIndex - 1][0] = stockMap[key].currentStock; // 更新陣列 (減 1 是因為排除了標題列)
-      }
     });
 
-    // 🚀 執行批次寫入 (Batch Write)
+    // 🚀 執行批次寫入 (Batch Write) 訂單
     if (orderRowsToInsert.length > 0) {
       // 一次性寫入所有訂單項目
       orderSheet.getRange(orderSheet.getLastRow() + 1, 1, orderRowsToInsert.length, orderRowsToInsert[0].length).setValues(orderRowsToInsert);
     }
     
-    if (newStockColumn.length > 0) {
-      // 一次性寫回整條庫存欄位
-      sheetProduct.getRange(2, stockIdx + 1, newStockColumn.length, 1).setValues(newStockColumn);
+    // 🚀 執行精準寫入 (Selective Write) 庫存
+    // 避免覆寫整欄，只針對本次交易有牽涉到的商品單獨 setValue
+    for (let key in requestedQtyMap) {
+      if (stockMap[key]) {
+        let newStock = stockMap[key].currentStock - requestedQtyMap[key];
+        sheetProduct.getRange(stockMap[key].rowIndex, stockIdx + 1).setValue(newStock);
+      }
     }
     
     SpreadsheetApp.flush(); // 強制應用所有更改
@@ -148,12 +168,14 @@ function doPost(e) {
   } catch (error) {
     return makeJson({success: false, message: "系統發生錯誤：" + error.toString()});
   } finally {
-    // 釋放 Lock
-    lock.releaseLock();
+    // 安全釋放 Lock
+    if (lock.hasLock()) {
+      lock.releaseLock();
+    }
   }
 }
 
-// ⚠️ 退貨的 function 也同步更新為記憶體批次處理庫存
+// ⚠️ 退貨邏輯同步套用「精準回補庫存」
 function handleCancelEntireOrder(orderId) {
   const lock = LockService.getScriptLock();
   
@@ -182,15 +204,16 @@ function handleCancelEntireOrder(orderId) {
     if (nameIdx === -1 || stockIdx === -1) return makeJson({success: false, message: "產品清單格式錯誤"});
 
     let stockMap = {}; 
-    let newStockColumn = [];
     for (let j = 1; j < prodData.length; j++) {
       let pName = String(prodData[j][nameIdx]).trim();
       let pColor = String(prodData[j][colorIdx] || "預設").trim();
-      stockMap[pName + "-" + pColor] = { rowIndex: j, currentStock: Number(prodData[j][stockIdx]) || 0 };
-      newStockColumn.push([Number(prodData[j][stockIdx]) || 0]);
+      stockMap[pName + "-" + pColor] = { rowIndex: j + 1, currentStock: Number(prodData[j][stockIdx]) || 0 };
     }
     
-    // 處理訂單狀態與退回庫存
+    // 建立要回補的數量對照表 (防重複商品疊加寫入衝突)
+    let restockMap = {};
+
+    // 處理訂單狀態與累計要退回的數量
     for (let i = 1; i < orderData.length; i++) {
       if (String(orderData[i][0]).trim() === String(orderId).trim() && orderData[i][10] !== "已取消") {
         const rawItemName = String(orderData[i][5]);
@@ -205,19 +228,21 @@ function handleCancelEntireOrder(orderId) {
         orderSheet.getRange(i + 1, 11).setValue("已取消");
         orderSheet.getRange(i + 1, 9).setValue(0);
         
-        // 記憶體中加回庫存
+        // 記憶體中累加要回補的庫存
         let key = cleanItemName + "-" + (itemColor || "預設").trim();
-        if (stockMap[key]) {
-          stockMap[key].currentStock += qty;
-          newStockColumn[stockMap[key].rowIndex - 1][0] = stockMap[key].currentStock;
-        }
+        if (!restockMap[key]) restockMap[key] = 0;
+        restockMap[key] += qty;
+
         found = true;
       }
     }
 
-    // 批次寫回退貨後的庫存
-    if (found && newStockColumn.length > 0) {
-      sheetProduct.getRange(2, stockIdx + 1, newStockColumn.length, 1).setValues(newStockColumn);
+    // 精準寫回退貨後的庫存
+    for (let key in restockMap) {
+      if (stockMap[key]) {
+        let restoredStock = stockMap[key].currentStock + restockMap[key];
+        sheetProduct.getRange(stockMap[key].rowIndex, stockIdx + 1).setValue(restoredStock);
+      }
     }
 
     SpreadsheetApp.flush();
@@ -226,7 +251,9 @@ function handleCancelEntireOrder(orderId) {
   } catch (error) {
     return makeJson({success: false, message: "系統發生錯誤：" + error.toString()});
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) {
+      lock.releaseLock();
+    }
   }
 }
 
@@ -234,9 +261,7 @@ function findHeaderIdx(headers, keywords) {
   return headers.findIndex(h => keywords.some(k => String(h).trim().toLowerCase().includes(k.toLowerCase())));
 }
 
-// 已經不需要獨立的 changeProductStock 了，所有庫存變動都在上述函式內批次完成。
-// 保留 getProductList 與 lookupOrder 不動。
-
+// 保留原本的行為不修改
 function getProductList(ss) {
   const sheet = ss.getSheetByName("產品清單");
   if (!sheet) return makeJson([]);
@@ -274,9 +299,10 @@ function getProductList(ss) {
   return makeJson(products);
 }
 
+// 恢復原本查詢總表的設定
 function lookupOrder(params) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheets()[0];
+  const sheet = ss.getSheetByName("全訂單紀錄總表");
   if (!sheet) return makeJson([]);
   const data = sheet.getDataRange().getValues();
   const tempMap = new Map();
