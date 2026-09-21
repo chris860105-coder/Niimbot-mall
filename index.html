@@ -218,6 +218,7 @@
 
                 const filteredDisplay = useMemo(() => {
                     let items = rawData.filter(p => {
+                        if (Number(p.stock) <= 0 || /^(?:已)?(?:完售|售完)$/.test(String(p.status || '').trim())) return false;
                         if (searchTerm.trim() !== '') {
                             const term = searchTerm.toLowerCase();
                             return (p.name && p.name.toLowerCase().includes(term)) || 
