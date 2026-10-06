@@ -658,7 +658,7 @@
                                                             <div className="flex flex-col flex-1 justify-between gap-1">
                                                                 <div className="flex justify-between items-start gap-2">
                                                                     <div className="flex flex-col items-start gap-1">
-                                                                        {item.status === '預購' && <span className="text-[9px] text-[#5f5045] border border-[#D3BBA8] bg-[#F4EEE9] px-1.5 py-0.5 rounded w-fit font-medium">預購</span>}
+                                                                        {item.status === '預購' && <span className="text-[9px] text-[#5f5045] border border-[#E85D4A] bg-[#F4EEE9] px-1.5 py-0.5 rounded w-fit font-medium">預購</span>}
                                                                         <span className="text-xs font-semibold text-zinc-900 leading-snug line-clamp-2">{item.name}</span>
                                                                     </div>
                                                                     <button onClick={()=>removeFromCart(item.cartId)} className="shrink-0 p-1.5 text-rose-500 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 rounded-lg active-scale transition-colors"><icons.Trash2 size={16}/></button>
