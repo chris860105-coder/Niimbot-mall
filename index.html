@@ -295,11 +295,15 @@
                 const removeFromCart = (cid) => setCart(prev => prev.filter(i => i.cartId !== cid));
 
                 const hasPreorder = cart.some(item => item.status === '預購');
+                const hasPreorderSticker = cart.some(item => item.status === '預購' && item.type === 'sticker');
 
                 const handleSubmitOrder = async () => {
                     if (!cart.length) return showToast("購物車是空的");
-                    if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
-                        return showToast("收件資訊不完整！姓名、電話與收件地址皆為必填。");
+                    if (!form.name.trim() || !form.phone.trim()) {
+                        return showToast("收件資訊不完整！姓名與電話為必填。");
+                    }
+                    if (hasPreorderSticker && !form.address.trim()) {
+                        return showToast("訂單包含預購貼紙，請填寫收件地址！");
                     }
                     
                     setOrderStatus('submitting');
@@ -699,7 +703,7 @@
                                                     <p className="text-[11px] font-semibold text-zinc-600 uppercase pl-1">收件資訊 CUSTOMER INFO</p>
                                                     <input placeholder="您的姓名 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>
                                                     <input placeholder="電話號碼 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
-                                                    <input placeholder="收件地址 (必填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
+                                                    <input placeholder={hasPreorderSticker ? '收件地址 (必填，預購貼紙寄送使用)' : '收件地址 (選填)'} className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
                                                     <textarea placeholder="備註留言 (選填)" className="w-full p-4 field-soft rounded-xl outline-none text-sm font-medium h-20 resize-none" value={form.memo} onChange={e=>setForm({...form,memo:e.target.value})}/>
                                                 </div>
                                                 <div className="pt-2 pb-2">
