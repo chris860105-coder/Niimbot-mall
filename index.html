@@ -686,15 +686,13 @@
 
                                                 {hasPreorder && (
                                                     <div className="pt-6 border-t border-slate-200 space-y-3">
-                                                        <p className="text-[11px] font-semibold text-[#5f5045] uppercase pl-1 flex items-center gap-1"><icons.Package size={14}/> 包含預購商品，請選擇處理方式</p>
+                                                        <p className="text-[11px] font-semibold text-[#5f5045] uppercase pl-1 flex items-center gap-1"><icons.Package size={14}/> 請選擇取貨方式</p>
                                                         <div className="grid grid-cols-1 gap-2">
                                                             <button onClick={()=>setForm({...form, deliveryOption: '現貨先拿，預購寄出'})} className={`p-4 rounded-xl border text-left transition-all active-scale ${form.deliveryOption === '現貨先拿，預購寄出' ? 'bg-[#F4EEE9] border-[#C6A992] shadow-sm text-[#3f352d]' : 'bg-white border-stone-200 text-zinc-700 hover:bg-[#fbfaf8]'}`}>
-                                                                <div className="font-semibold text-sm text-zinc-900">現貨先拿，預購寄出</div>
-                                                                <div className="text-[10px] mt-1 opacity-80">現場先帶走現貨，預購商品到貨後寄出</div>
+                                                                <div className="font-semibold text-sm text-zinc-900">A｜現貨現場拿，預購寄到家</div>
                                                             </button>
                                                             <button onClick={()=>setForm({...form, deliveryOption: '現貨/預購一起寄出'})} className={`p-4 rounded-xl border text-left transition-all active-scale ${form.deliveryOption === '現貨/預購一起寄出' ? 'bg-[#F4EEE9] border-[#C6A992] shadow-sm text-[#3f352d]' : 'bg-white border-stone-200 text-zinc-700 hover:bg-[#fbfaf8]'}`}>
-                                                                <div className="font-semibold text-sm text-zinc-900">現貨 / 預購一起寄出</div>
-                                                                <div className="text-[10px] mt-1 opacity-80">等預購商品到貨後，所有商品一起寄出</div>
+                                                                <div className="font-semibold text-sm text-zinc-900">B｜全部寄到家</div>
                                                             </button>
                                                         </div>
                                                     </div>
